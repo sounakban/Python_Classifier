@@ -4,11 +4,11 @@ import itertools
 import math
 
 
-thread_count = (multiprocessing.cpu_count()*75)/100
+thread_count = multiprocessing.cpu_count()*0.75
 
-def cal_PMI(cooccurence_list, vocab, i):
-    curr_list = cooccurence_list[i]
-    curr_vocab = vocab[i]
+def cal_PMI(cooccurence_list):
+    curr_list = cooccurence_list[0]
+    curr_vocab = cooccurence_list[1]
     #Convert raw-frequency to probability
     key_list = curr_list.keys()
     value_list = curr_list.values()
@@ -19,30 +19,26 @@ def cal_PMI(cooccurence_list, vocab, i):
     #Calculate PMI Coefficients
     for pair in curr_list.keys():
         if pair[0] in curr_vocab.keys() and pair[1] in curr_vocab.keys():
-            if curr_list[pair] == 0 or curr_vocab[pair[0]] == 0 or curr_vocab[pair[1]] == 0:
-                del curr_list[pair]
-                continue
-            curr_list[pair] = math.log(curr_list[pair]/(curr_vocab[pair[0]]*curr_vocab[pair[1]]))
+            curr_list[pair] = math.log(curr_list[pair]/float(curr_vocab[pair[0]]*curr_vocab[pair[1]]))
         else:
             del curr_list[pair]
+    return curr_list
 
 
-def cal_Jaccard(cooccurence_list, vocab, i):
-    curr_list = cooccurence_list[i]
-    curr_vocab = vocab[i]
+def cal_Jaccard(cooccurence_list):
+    curr_list = cooccurence_list[0]
+    curr_vocab = cooccurence_list[1]
     #Calculate Jaccard Coefficients
     for pair in curr_list.keys():
-        if pair[0] in curr_vocab.keys() and pair[1] in curr_vocab.keys():
-            if curr_list[pair] == 0 or curr_vocab[pair[0]] == 0 or curr_vocab[pair[1]] == 0:
-                del curr_list[pair]
-                continue
-            curr_list[pair] = curr_list[pair]/(curr_vocab[pair[0]]+curr_vocab[pair[1]]-curr_list[pair])
+        if pair[0] in curr_vocab.keys() and pair[1] in curr_vocab.keys() and curr_vocab[pair[0]]+curr_vocab[pair[1]] > curr_list[pair]:
+            curr_list[pair] = curr_list[pair]/float(curr_vocab[pair[0]]+curr_vocab[pair[1]]-curr_list[pair])
         else:
             del curr_list[pair]
+    return curr_list
 
 
-def normalize_corcoeff(cooccurence_list, i):
-    curr_list = cooccurence_list[i]
+def normalize_corcoeff(cooccurence_list):
+    curr_list = cooccurence_list
     value_list = curr_list.values()
     mean = float(sum(value_list))/len(value_list)
     for pair in curr_list.keys():
@@ -50,3 +46,4 @@ def normalize_corcoeff(cooccurence_list, i):
             curr_list[pair] = 1
         else:
             curr_list[pair] = curr_list[pair]/mean
+    return curr_list

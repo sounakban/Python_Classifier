@@ -30,10 +30,11 @@ def process_text(text):
         words = clean_text(sent)
         word_pairs = list(itertools.combinations(words, 2))
         for pair in word_pairs:
-            if pair in all_pairs:
-                all_pairs[pair] += 1
+            pair_set = frozenset(pair)
+            if pair_set in all_pairs:
+                all_pairs[pair_set] += 1
             else:
-                all_pairs[pair] = 1
+                all_pairs[pair_set] = 1
 
     #print "writing results to file : Cooccur.csv"
     #for key, val in all_pairs.items():
@@ -56,10 +57,11 @@ def process_dir(location):
                 words = clean_text(sent)
                 word_pairs = list(itertools.combinations(words, 2))
                 for pair in word_pairs:
-                    if pair in all_pairs:
-                        all_pairs[pair] += 1
+                    pair_set = frozenset(pair)
+                    if pair_set in all_pairs:
+                        all_pairs[pair_set] += 1
                     else:
-                        all_pairs[pair] = 1
+                        all_pairs[pair_set] = 1
 
     #print "writing results to file : Cooccur.csv"
     #for key, val in all_pairs.items():

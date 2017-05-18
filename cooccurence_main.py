@@ -8,7 +8,7 @@ from cooccurence_extract import process_text
 from cooccurence_utils import cal_PMI, cal_Jaccard, normalize_corcoeff
 
 
-thread_count = (multiprocessing.cpu_count()*75)/100
+thread_count = multiprocessing.cpu_count()*0.75
 
 
 def get_cooccurences(train_labels, train_docs):
@@ -27,25 +27,27 @@ def get_cooccurences(train_labels, train_docs):
                     class_cooc[pair] += fil_cooc[pair]
                 else:
                     class_cooc[pair] = fil_cooc[pair]
-        cooccurence_list[i] = class_cooc
+        class_cooc_new = {tuple(k):v for k,v in class_cooc.items() if len(tuple(k))==2}
+        cooccurence_list[i] = class_cooc_new
     return cooccurence_list
 
 
-def cacl_corcoff(cooccurence_list, vocab, cor_type):
+def calc_corcoff(cooccurence_list, vocab, cor_type):
     pool = multiprocessing.Pool(processes=thread_count)
     parameter = []
     for i in range(len(cooccurence_list)):
         parameter.append([cooccurence_list[i], vocab[i]])
-    #print len(parameter)
     if cor_type == "P" or cor_type == "p":
-        pool.imap(cal_PMI, parameter)
+        cooccurence_list_new = list(pool.imap(cal_PMI, parameter))
     elif cor_type == "J" or cor_type == "j":
-        pool.imap(cal_Jaccard, parameter)
+        cooccurence_list_new = list(pool.imap(cal_Jaccard, parameter))
     pool.close()
     pool.join()
+    cooccurence_list = cooccurence_list_new
 
     pool = multiprocessing.Pool(processes=thread_count)
-    norm_func = partial(normalize_corcoeff, cooccurence_list)
-    pool.map(norm_func, range(len(cooccurence_list)))
+    new = pool.map(normalize_corcoeff, cooccurence_list)
+    cooccurence_list = new
     pool.close()
     pool.join()
+    return cooccurence_list
