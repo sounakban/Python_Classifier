@@ -7,4 +7,7 @@ for k in new.keys():
 print "##########################################################################################"
 
 test_min = [0, 3 , 2, 4, 7, 2, 0, 4]
+test_min.append(7)
+print test_min
 print test_min.index(min((test_min)))
+print test_min[2:7]

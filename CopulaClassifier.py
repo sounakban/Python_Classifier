@@ -1,102 +1,37 @@
-from cooccurence_extract import process_text
-from math import log, exp
+import numpy
+from multiprocessing import Process, Queue, cpu_count
+thread_count = int(cpu_count()*0.75)
 
+from copula_utils import classify
 
-def classify(corcoeff, vocab, test_docs):
-    predictions = []
-    for doc in test_docs:
-        scorelist = []
-        doc_repr = process_text(doc)
-        cooccurences = {tuple(k):v for k,v in doc_repr.items() if len(tuple(k))==2}
-        for i in range(len(corcoeff)):
-            sub_scores = []
-            curr_coeffs = corcoeff[i]
-            curr_vocab = vocab[i]
-            for pair in cooccurences.keys():
-                if pair in curr_coeffs.keys():
-                    theta = curr_coeffs[pair]
-                    sub_scores.extend(log( phi_inv(phi(curr_vocab[pair[0]], theta) + phi(curr_vocab[pair[1]], theta) , theta) ))
-            score = exp(sum(sub_scores))
-            scorelist.extend(score)
-        prediction = analyze_scores(scorelist, "single")
-        predictions.append(prediction)
-    print predictions
-    return predictions
-
-def bivariate_gumbel(p1, p2, theta):
-    return log( phi_inv(phi(p1, theta) + phi(p2, theta), theta) )
-
-def phi_gumbel(termWeight, theta):
-    return (-log(termWeight))**theta
-
-def phi_inv_gumbel(termWeight, theta):
-    return exp( -(termWeight ** (1/theta)) )
-
-def analyze_scores(scores, predtype):
-    if predtype == "single":
-        pred = [0]*len(scores)
-        pred[scores.index(min(scores))] = 1
-    return pred
-
-
-
-
-
-
-"""
 class CopulaClassifier:
-    cooccurences = {}
 
-    def __init__(self, cooccurences):
-        self.cooccurences = {tuple(k):v for k,v in cooccurences.items() if len(tuple(k))==2}
+    def __init__(self, corcoeff, vocab):
+        self.corcoeff = corcoeff
+        self.vocab = vocab
 
-    def classify(self, param):
-        corcoeff = param[0]
-        term_weights = param[1]
-        sub_scores = []
-        for pair in self.cooccurences.keys():
-            if pair in corcoeff.keys():
-                theta = corcoeff[pair]
-                term_weights[pair[0]]
-                term_weights[pair[1]]
-                sub_scores.extend(log( phi_inv(phi(term_weights[pair[0]], theta) + phi(term_weights[pair[1]], theta) , theta) ))
+    def predict_multiclass(self, test_docs):
 
-        score = exp(sum(sub_scores))
-        print score
-        return score
-"""
+        #predictions = numpy.array()
+        predictions_list = []
+        que = Queue()
 
-
-"""
-class CopulaClassifier:
-    cooccurences = {}
-
-    def __init__(self, all_corcoeff, all_term_weight):
-        self.all_corcoeff = all_corcoeff
-        self.all_term_weight = all_term_weight
-        self.
-
-    def classify(self, doc):
-        doc_repr = process_text(doc)
-        cooccurences = {tuple(k):v for k,v in doc_repr.items() if len(tuple(k))==2}
-        sub_scores = []
-        for pair in self.cooccurences.keys():
-            if pair in corcoeff.keys():
-                theta = corcoeff[pair]
-                term_weights[pair[0]]
-                term_weights[pair[1]]
-                sub_scores.extend(log( phi_inv(phi(term_weights[pair[0]], theta) + phi(term_weights[pair[1]], theta) , theta) ))
-
-        score = exp(sum(sub_scores))
-        print score
-        return score
-
-    def bivariate_gumbel(p1, p2, theta):
-        return log( phi_inv(phi(p1, theta) + phi(p2, theta), theta) )
-
-    def phi_gumbel(termWeight, theta):
-        return (-log(termWeight))**theta
-
-    def phi_inv_gumbel(termWeight, theta):
-        return exp( -(termWeight ** (1/theta)) )
-"""
+        if thread_count < len(test_docs):
+            div = (len(test_docs)/thread_count)+1
+            print len(test_docs)
+            processes = []
+            for i in range(thread_count):
+                end = (i+1)*div
+                if end > len(test_docs):
+                    end = len(test_docs)
+                processes.append(Process(target=classify, args=( self.corcoeff, self.vocab, test_docs[i*div:end], que )))
+            for pro in processes:
+                pro.start()
+            for pro in processes:
+                predictions_list.extend(que.get())
+            for pro in processes:
+                pro.join()
+        else:
+            predictions_list.extend(classify(self.corcoeff, self.vocab, test_docs))
+        print(len(predictions_list))
+        return numpy.array(predictions_list)

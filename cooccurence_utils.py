@@ -4,7 +4,7 @@ import itertools
 import math
 
 
-thread_count = multiprocessing.cpu_count()*0.75
+thread_count = int(multiprocessing.cpu_count()*0.75)
 
 def cal_PMI(cooccurence_list):
     curr_list = cooccurence_list[0]

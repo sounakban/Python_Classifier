@@ -47,7 +47,6 @@ def get_TF(vectorizer_tf, vectorised_train_documents_tf, doc_list, raw_tf=False)
 
 def get_IDF(vectorizer_tfidf):
     idf = vectorizer_tfidf.idf_
-    #print dict(zip(vectorizer_tfidf.get_feature_names(), idf))
     return dict(zip(vectorizer_tfidf.get_feature_names(), idf))
 
 

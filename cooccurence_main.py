@@ -8,7 +8,7 @@ from cooccurence_extract import process_text
 from cooccurence_utils import cal_PMI, cal_Jaccard, normalize_corcoeff
 
 
-thread_count = multiprocessing.cpu_count()*0.75
+thread_count = int(multiprocessing.cpu_count()*0.75)
 
 
 def get_cooccurences(train_labels, train_docs):

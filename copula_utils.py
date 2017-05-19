@@ -1,57 +1,46 @@
-import numpy
-import multiprocessing
 from cooccurence_extract import process_text
-thread_count = multiprocessing.cpu_count()*0.75
+from math import log, exp
+import numpy
 
-from CopulaClassifier import classify
 
-
-"""
-def predict_multiclass(corcoeff, vocab, test_docs):
-    doc_classifier = CopulaClassifier(corcoeff, vocab)
-    predictions = numpy.array()
+def classify(corcoeff, vocab, test_docs, que):
+    predictions = []
     for doc in test_docs:
-        class_labels = doc_classifier.classify(doc)
-        pool.close()
-        pool.join()
-        #---add class_labels data to prediction
-
-    return predictions
-"""
-
-
-def predict_multiclass(corcoeff, vocab, test_docs):
-    """
-    parameter = []
-    for i in range(len(corcoeff)):
-        parameter.append([corcoeff[i], vocab[i]])
-    """
-    predictions = numpy.array()
-    predictions_list = []
-
-    if thread_count < len(test_docs):
-        div = len(test_docs)/thread_count
-        processes = []
-        for i in range(thread_count):
-            end = (i+1)*div-1
-            if end >= len(test_docs):
-                end = len(test_docs)-1
-            processes.append(multiprocessing.Process(target=classify, args=( corcoeff, vocab, test_docs[i*div:end] )))
-        for pro in processes:
-            predictions_list.extend(pro.start())
-        for pro in processes:
-            pro.join()
-    else:
-        predictions_list.extend(classify(corcoeff, vocab, test_docs))
-    return predictions
-
-"""
-    for doc in test_docs:
+        scorelist = []
         doc_repr = process_text(doc)
-        doc_classifier = CopulaClassifier(doc_repr)
-        pool = multiprocessing.Pool(processes=thread_count)
-        class_labels = pool.imap(doc_classifier.classify, parameter)
-        pool.close()
-        pool.join()
-        #add class_labels data to prdiction
-"""
+        cooccurences = {tuple(k):v for k,v in doc_repr.items() if len(tuple(k))==2}
+        for i in range(len(corcoeff)):
+            sub_scores = []
+            curr_coeffs = corcoeff[i]
+            curr_vocab = vocab[i]
+            for pair in cooccurences.keys():
+                if pair in curr_coeffs.keys():
+                    theta = curr_coeffs[pair]
+                    #sub_scores.append(log( phi_inv_gumbel(phi_gumbel(curr_vocab[pair[0]], theta) + phi_gumbel(curr_vocab[pair[1]], theta) , theta) ))
+                    sub_scores.append( bivariate_gumbel(curr_vocab[pair[0]], curr_vocab[pair[1]], theta) )
+            #score = exp(sum(sub_scores))
+            score = sum(sub_scores)
+            scorelist.append(score)
+        print "Scores: ", scorelist
+        prediction = analyze_scores(scorelist, "single")
+        predictions.append(prediction)
+        print "Doc complete"
+    #for pred in predictions:
+        #print pred
+    que.put(predictions)
+    #return predictions
+
+def bivariate_gumbel(p1, p2, theta):
+    return log( phi_inv_gumbel(phi_gumbel(p1, theta) + phi_gumbel(p2, theta), theta) )
+
+def phi_gumbel(termWeight, theta):
+    return (-log(termWeight))**theta
+
+def phi_inv_gumbel(termWeight, theta):
+    return exp( -(termWeight ** (1/theta)) )
+
+def analyze_scores(scores, predtype):
+    if predtype == "single":
+        pred = [0]*len(scores)
+        pred[scores.index(min(scores))] = 1
+    return numpy.array(pred)
