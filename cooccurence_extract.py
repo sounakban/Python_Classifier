@@ -2,6 +2,7 @@ from nltk.corpus import stopwords
 import string
 from nltk.stem.porter import PorterStemmer
 import re
+from functools import partial
 
 import glob
 from nltk.tokenize import sent_tokenize
@@ -29,13 +30,15 @@ def process_text(text):
     for sent in sent_tokenize_list:
         words = clean_text(sent)
         word_pairs = list(itertools.combinations(words, 2))
+        map(partial(add_to_dict, all_pairs), word_pairs)
+        """
         for pair in word_pairs:
             pair_set = frozenset(pair)
             if pair_set in all_pairs:
                 all_pairs[pair_set] += 1
             else:
                 all_pairs[pair_set] = 1
-
+        """
     #print "writing results to file : Cooccur.csv"
     #for key, val in all_pairs.items():
     #    writeFile1.writerow([key, val])
@@ -56,13 +59,24 @@ def process_dir(location):
             for sent in sent_tokenize_list:
                 words = clean_text(sent)
                 word_pairs = list(itertools.combinations(words, 2))
+                map(partial(add_to_dict, all_pairs), word_pairs)
+                """
                 for pair in word_pairs:
                     pair_set = frozenset(pair)
                     if pair_set in all_pairs:
                         all_pairs[pair_set] += 1
                     else:
                         all_pairs[pair_set] = 1
-
+                """
     #print "writing results to file : Cooccur.csv"
     #for key, val in all_pairs.items():
     #    writeFile1.writerow([key, val])
+
+
+
+def add_to_dict(all_pairs, pair):
+    pair_set = frozenset(pair)
+    if pair_set in all_pairs:
+        all_pairs[pair_set] += 1
+    else:
+        all_pairs[pair_set] = 1

@@ -111,7 +111,7 @@ start_time = time.time()
 #----------------Classification--------------------------
 
 classifier = CopulaClassifier(corcoeff, vocab_choice)
-predictions = classifier.predict_multiclass(test_docs[0:10])
+predictions = classifier.predict_multilabel(test_docs[0:10])
 
 print "The Classification is complete and it took", print_time(start_time)
 start_time = time.time()
@@ -122,7 +122,7 @@ print test_labels[0:10]
 print "Predicted:"
 print predictions
 
-
+"""
 #-----------------Evaluation ----------------------
 precision = precision_score(test_labels[0:10], predictions, average='micro')
 recall = recall_score(test_labels[0:10], predictions, average='micro')
@@ -141,7 +141,7 @@ print("Precision: {:.4f}, Recall: {:.4f}, F1-measure: {:.4f}".format(precision, 
 print "Evaluation complete and it took : ", print_time(start_time)
 
 print "Total time taken : ", (time.time() - program_start)/60.0, "minuites"
-
+"""
 
 
 

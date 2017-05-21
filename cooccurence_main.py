@@ -1,4 +1,5 @@
 import multiprocessing
+thread_count = int(multiprocessing.cpu_count()*0.75)
 from functools import partial
 import numpy
 import itertools
@@ -8,7 +9,6 @@ from cooccurence_extract import process_text
 from cooccurence_utils import cal_PMI, cal_Jaccard, normalize_corcoeff
 
 
-thread_count = int(multiprocessing.cpu_count()*0.75)
 
 
 def get_cooccurences(train_labels, train_docs):
@@ -22,14 +22,26 @@ def get_cooccurences(train_labels, train_docs):
         pool.join()
         class_cooc = {}
         for fil_cooc in file_coocs:
+            map(partial(add_pairs, class_cooc), file_coocs)
+            """
             for pair in fil_cooc.keys():
                 if pair in class_cooc:
                     class_cooc[pair] += fil_cooc[pair]
                 else:
                     class_cooc[pair] = fil_cooc[pair]
+            """
         class_cooc_new = {tuple(k):v for k,v in class_cooc.items() if len(tuple(k))==2}
         cooccurence_list[i] = class_cooc_new
     return cooccurence_list
+
+def add_pairs(class_cooc, fil_cooc):
+    for pair in fil_cooc.keys():
+        if pair in class_cooc:
+            class_cooc[pair] += fil_cooc[pair]
+        else:
+            class_cooc[pair] = fil_cooc[pair]
+
+
 
 
 def calc_corcoff(cooccurence_list, vocab, cor_type):
