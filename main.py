@@ -33,6 +33,10 @@ if weight != "tfidf" and weight != "tf":
 cor_type = input("Enter correlation coefficient in QUOTES [P for PMI, J for Jaccard] : ")
 if cor_type != "J" and cor_type != "j" and cor_type != "P" and cor_type != "p":
     raise ValueError ("Unrecognised option for correlation coefficient.")
+if cor_type == "j":
+    cor_type = "J"
+elif cor_type == "p":
+    cor_type = "P"
 
 start_time = time.time()
 program_start = start_time
@@ -93,14 +97,14 @@ print "Generating term-cooccurences complete and it took : ", print_time(start_t
 start_time = time.time()
 
 #Find Correlation Coefficient Values
-if cor_type == "J" or cor_type == "j":
+if cor_type == "J":
     vocab_raw = {}
     for i in range(train_labels.shape[1]):
         classdoc_ids = numpy.nonzero(train_labels[:, i])[0].tolist()
         vocab_raw[i] = get_TF(vectorizer_tf, vectorised_train_documents_tf, classdoc_ids, raw_tf=True)
-    corcoeff = cooccurence_main.calc_corcoff(cooccurences_by_class, vocab_raw, cor_type)
-elif cor_type == "P" or cor_type == "p":
-    corcoeff = cooccurence_main.calc_corcoff(cooccurences_by_class, vocab_tf, cor_type)
+    corcoeff = cooccurence_main.calc_corcoeff(cooccurences_by_class, vocab_raw, cor_type)
+elif cor_type == "P":
+    corcoeff = cooccurence_main.calc_corcoeff(cooccurences_by_class, vocab_tf, cor_type)
 
 
 print "Calculating correlation-coefficients complete and it took : ", print_time(start_time)
@@ -111,7 +115,8 @@ start_time = time.time()
 #----------------Classification--------------------------
 
 classifier = CopulaClassifier(corcoeff, vocab_choice)
-predictions = classifier.predict_multilabel(test_docs[0:10])
+#predictions = classifier.predict_multilabel(test_docs[0:10])
+predictions = classifier.predict_multiclass(test_docs[0:10])
 
 print "The Classification is complete and it took", print_time(start_time)
 start_time = time.time()
@@ -121,6 +126,7 @@ print "Original:"
 print test_labels[0:10]
 print "Predicted:"
 print predictions
+
 
 """
 #-----------------Evaluation ----------------------
@@ -139,9 +145,12 @@ print("Macro-average quality numbers")
 print("Precision: {:.4f}, Recall: {:.4f}, F1-measure: {:.4f}".format(precision, recall, f1))
 
 print "Evaluation complete and it took : ", print_time(start_time)
+"""
+
+
 
 print "Total time taken : ", (time.time() - program_start)/60.0, "minuites"
-"""
+
 
 
 

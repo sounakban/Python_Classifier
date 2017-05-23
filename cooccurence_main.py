@@ -17,41 +17,32 @@ def get_cooccurences(train_labels, train_docs):
         pool = multiprocessing.Pool(processes=thread_count)
         classdoc_ids = numpy.nonzero(train_labels[:, i])[0].tolist()
         classdocs = [train_docs[did] for did in classdoc_ids]
-        file_coocs = pool.imap_unordered(process_text, classdocs)
+        file_coocs = pool.imap(process_text, classdocs)
         pool.close()
         pool.join()
         class_cooc = {}
-        for fil_cooc in file_coocs:
-            map(partial(add_pairs, class_cooc), file_coocs)
-            """
-            for pair in fil_cooc.keys():
-                if pair in class_cooc:
-                    class_cooc[pair] += fil_cooc[pair]
-                else:
-                    class_cooc[pair] = fil_cooc[pair]
-            """
+        map(lambda fil_cooc: map(partial(add_pairs, class_cooc, fil_cooc), fil_cooc.keys()), file_coocs)
         class_cooc_new = {tuple(k):v for k,v in class_cooc.items() if len(tuple(k))==2}
         cooccurence_list[i] = class_cooc_new
     return cooccurence_list
 
-def add_pairs(class_cooc, fil_cooc):
-    for pair in fil_cooc.keys():
-        if pair in class_cooc:
-            class_cooc[pair] += fil_cooc[pair]
-        else:
-            class_cooc[pair] = fil_cooc[pair]
+def add_pairs(class_cooc, fil_cooc, pair):
+    if pair in class_cooc:
+        class_cooc[pair] += fil_cooc[pair]
+    else:
+        class_cooc[pair] = fil_cooc[pair]
 
 
 
 
-def calc_corcoff(cooccurence_list, vocab, cor_type):
+def calc_corcoeff(cooccurence_list, vocab, cor_type):
     pool = multiprocessing.Pool(processes=thread_count)
     parameter = []
     for i in range(len(cooccurence_list)):
         parameter.append([cooccurence_list[i], vocab[i]])
-    if cor_type == "P" or cor_type == "p":
+    if cor_type == "P":
         cooccurence_list_new = list(pool.imap(cal_PMI, parameter))
-    elif cor_type == "J" or cor_type == "j":
+    elif cor_type == "J":
         cooccurence_list_new = list(pool.imap(cal_Jaccard, parameter))
     pool.close()
     pool.join()

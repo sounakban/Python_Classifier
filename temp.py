@@ -1,9 +1,24 @@
 import cooccurence_extract
-from multiprocessing import Process, Queue
+from multiprocessing import Process, Queue, Pool
 
-new = {tuple(k):v for k,v in cooccurence_extract.process_text("This is a proper working test. To see whether the proper test algo is working correctlt").items()}
+test_text = "This is a proper working test. To see whether the proper test algo is working correctlt"
+new = {tuple(k):v for k,v in cooccurence_extract.process_text(test_text).items()}
 for k in new.keys():
     print k[0] == k[1], len(k)
+print new.keys()
+print new.values()
+print "##########################################################################################"
+
+pool = Pool(processes=3)
+file_coocs = pool.imap_unordered(cooccurence_extract.process_text, [test_text, test_text])
+pool.close()
+pool.join()
+for cooc in file_coocs:
+    print "1:", {tuple(k):v for k,v in cooc.items()}.keys()
+    print "1:", cooc.values()
+
+
+
 print "##########################################################################################"
 
 test_min = [0, 3 , 2, 4, 7, 6, 9, 1]
