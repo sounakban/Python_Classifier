@@ -9,7 +9,6 @@ import numpy
 
 
 
-
 cachedStopWords = stopwords.words("english")
 def tokenize(text, word_length = 3):
   min_length = word_length
@@ -22,18 +21,26 @@ def tokenize(text, word_length = 3):
   return filtered_tokens
 
 
-def get_TF(vectorizer_tf, vectorised_train_documents_tf, doc_list, raw_tf=False):
+def freqToProbability(vocab_tf):
+  vocab = vocab_tf.keys()
+  tf_values = vocab_tf.values()
+  #Divide by total freq
+  tot = float(sum(tf_values))
+  tf_values_array = numpy.array(tf_values)/tot
+  prob_values = tf_values_array.tolist()
+  vocab_tprob = dict(itertools.izip(vocab, prob_values))
+  return vocab_tprob
+
+
+
+
+def get_TF(vectorizer_tf, vectorised_train_documents_tf, doc_list):
     #vocab contains term-index pair
     vocab = vectorizer_tf.vocabulary_
-    #sorted_vocab contains list of terms sorted based on index
+    #sorted_vocab contains list of terms sorted on index
     sorted_vocab = [item[0] for item in sorted(vocab.items(), key=operator.itemgetter(1))]
     tf_values = numpy.array(vectorised_train_documents_tf[doc_list, :].sum(axis=0))[0].tolist()
-    if raw_tf == False:
-        #Divide by total freq
-        tot = float(sum(tf_values))
-        vocab_tf_array = numpy.array(tf_values)/tot
-        tf_values = vocab_tf_array.tolist()
-    #vocab_tf_new is a dictionary that stores tfidf sum over all docs for each term
+    #vocab_tf_new is a dictionary that stores, freq of each term summed over all docs
     vocab_tf = dict(itertools.izip(sorted_vocab, tf_values))
     vocab_tf_new = {key: value for key, value in vocab_tf.items() if value != 0}
     """
@@ -44,11 +51,9 @@ def get_TF(vectorizer_tf, vectorised_train_documents_tf, doc_list, raw_tf=False)
     return vocab_tf_new
 
 
-
 def get_IDF(vectorizer_tfidf):
     idf = vectorizer_tfidf.idf_
     return dict(zip(vectorizer_tfidf.get_feature_names(), idf))
-
 
 
 def get_TFIDF(vectorizer_tfidf, vectorised_train_documents_tfidf, doc_list):

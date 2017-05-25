@@ -25,7 +25,7 @@ class CopulaClassifier:
                 end = (i+1)*div
                 if end > len(test_docs):
                     end = len(test_docs)
-                processes.append(Process(target=classify, args=( self.corcoeff, self.vocab, test_docs[i*div:end], i, que, "single" )))
+                processes.append(Process(target=classify, args=( self.corcoeff, self.vocab, test_docs[i*div:end], i, que, "multi" )))
             for pro in processes:
                 pro.start()
             for pro in processes:
@@ -36,7 +36,7 @@ class CopulaClassifier:
             for i in range(len(processes)):
                 predictions_list.extend(predictions_dict[i])
         else:
-            classify(self.corcoeff, self.vocab, test_docs, 0, que, "single")
+            classify(self.corcoeff, self.vocab, test_docs, 0, que, "multi")
             predictions_list.extend(que.get()[1:])
         return numpy.array(predictions_list)
 

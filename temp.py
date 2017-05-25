@@ -26,6 +26,10 @@ test_min.append(0)
 print test_min
 print test_min.index(min((test_min)))
 print test_min[2:9]
+test_copy = list(test_min)
+test_copy.sort(reverse=True)
+print test_min
+print test_copy
 print "##########################################################################################"
 
 def Qtest(X, queue):
@@ -61,3 +65,10 @@ test_map = filter(None, test_map)
 print "After Filter : ", test_map
 print "Pass by reference : ", test_passReference
 print "Sum : ", sum(test_map)
+print "##########################################################################################"
+
+from copula_utils import score2pred
+
+test_scores = [-1123, -586, -754, -1098, -645, -478]
+print test_scores
+print score2pred(test_scores, "multi")

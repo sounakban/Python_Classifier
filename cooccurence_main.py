@@ -6,12 +6,14 @@ import itertools
 import math
 
 from cooccurence_extract import process_text
-from cooccurence_utils import cal_PMI, cal_Jaccard, normalize_corcoeff
+from cooccurence_utils import cal_PMI, get_P_AandB, cal_Jaccard, normalize_corcoeff
 
 
 
 
-def get_cooccurences(train_labels, train_docs):
+def get_cooccurences(train_labels, train_docs, P_AandB, vocab_tf={}, vocab_tprob={}):
+    if P_AandB == True and (len(vocab_tf) != train_labels.shape[1] or len(vocab_tprob) != train_labels.shape[1]):
+        raise ValueError('@get_cooccurences: Either set P_AandB to False or pass a valid Term(Freq/Prob) dict, divided by class')
     cooccurence_list = {}
     for i in range(train_labels.shape[1]):
         pool = multiprocessing.Pool(processes=thread_count)
@@ -24,6 +26,16 @@ def get_cooccurences(train_labels, train_docs):
         map(lambda fil_cooc: map(partial(add_pairs, class_cooc, fil_cooc), fil_cooc.keys()), file_coocs)
         class_cooc_new = {tuple(k):v for k,v in class_cooc.items() if len(tuple(k))==2}
         cooccurence_list[i] = class_cooc_new
+    if P_AandB == True:
+        parameter = []
+        for i in range(len(cooccurence_list)):
+            parameter.append([cooccurence_list[i], vocab_tf[i], vocab_tprob[i]])
+        pool = multiprocessing.Pool(processes=thread_count)
+        #use jaccard formula for probability
+        cooccurence_list_new = list(pool.imap(get_P_AandB, parameter))
+        pool.close()
+        pool.join()
+        cooccurence_list = cooccurence_list_new
     return cooccurence_list
 
 def add_pairs(class_cooc, fil_cooc, pair):

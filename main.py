@@ -5,7 +5,7 @@ from sklearn.preprocessing import MultiLabelBinarizer
 from nltk.corpus import stopwords
 stop_words = stopwords.words("english")
 import cooccurence_main
-from text_processing import tokenize, get_TF, get_TFIDF
+from text_processing import tokenize, get_TF, get_TFIDF, freqToProbability
 import numpy
 
 #Classification
@@ -61,12 +61,12 @@ test_labels = mlb.transform([reuters.categories(doc_id) for doc_id in test_docs_
 print "Building file list complete and it took : ", print_time(start_time)
 start_time = time.time()
 
+
 #Process all documents
-if (weight == "tf" and cor_type == "J") or cor_type == "P":
-    # Learn and transform documents [tf]
-    vectorizer_tf = CountVectorizer(stop_words=stop_words, tokenizer=tokenize)
-    vectorised_train_documents_tf = vectorizer_tf.fit_transform(train_docs)
-    vectorised_test_documents_tf = vectorizer_tf.transform(test_docs)
+# Learn and transform documents [tf]
+vectorizer_tf = CountVectorizer(stop_words=stop_words, tokenizer=tokenize)
+vectorised_train_documents_tf = vectorizer_tf.fit_transform(train_docs)
+vectorised_test_documents_tf = vectorizer_tf.transform(test_docs)
 if weight == "tfidf":
     # Learn and transform documents [tfidf]
     vectorizer_tfidf = TfidfVectorizer(stop_words=stop_words, tokenizer=tokenize)
@@ -74,12 +74,14 @@ if weight == "tfidf":
     vectorised_test_documents_tfidf = vectorizer_tfidf.transform(test_docs)
 
 #Devide features by class
-if (weight == "tf" and cor_type == "J") or cor_type == "P":
-    vocab_tf = {}
-    for i in range(train_labels.shape[1]):
-        classdoc_ids = numpy.nonzero(train_labels[:, i])[0].tolist()
-        vocab_tf[i] = get_TF(vectorizer_tf, vectorised_train_documents_tf, classdoc_ids)
-    vocab_choice = vocab_tf
+vocab_tf = {}
+vocab_tprob = {}
+for i in range(train_labels.shape[1]):
+    classdoc_ids = numpy.nonzero(train_labels[:, i])[0].tolist()
+    vocab_tf[i] = get_TF(vectorizer_tf, vectorised_train_documents_tf, classdoc_ids)
+    if weight == "tf" or cor_type == "P":
+        vocab_tprob[i] = freqToProbability(vocab_tf[i])
+vocab_choice = vocab_tprob
 if weight == "tfidf":
     vocab_tfidf = {}
     for i in range(train_labels.shape[1]):
@@ -90,22 +92,26 @@ if weight == "tfidf":
 print "Generating term-weights complete and it took : ", print_time(start_time)
 start_time = time.time()
 
+
 #Find cooccurences for all classes
-cooccurences_by_class = cooccurence_main.get_cooccurences(train_labels, train_docs)
+if cor_type == "J":
+    cooccurences_by_class = cooccurence_main.get_cooccurences(train_labels, train_docs, P_AandB=False)
+elif cor_type == "P":
+    cooccurences_by_class = cooccurence_main.get_cooccurences(train_labels, train_docs, P_AandB=True, vocab_tf=vocab_tf, vocab_tprob=vocab_tprob)
 
 print "Generating term-cooccurences complete and it took : ", print_time(start_time)
 start_time = time.time()
 
+#print {k:v for k,v in cooccurences_by_class[2].items() if v<=0.0 or v>=1.0}
+
+
 #Find Correlation Coefficient Values
 if cor_type == "J":
-    vocab_raw = {}
-    for i in range(train_labels.shape[1]):
-        classdoc_ids = numpy.nonzero(train_labels[:, i])[0].tolist()
-        vocab_raw[i] = get_TF(vectorizer_tf, vectorised_train_documents_tf, classdoc_ids, raw_tf=True)
-    corcoeff = cooccurence_main.calc_corcoeff(cooccurences_by_class, vocab_raw, cor_type)
-elif cor_type == "P":
     corcoeff = cooccurence_main.calc_corcoeff(cooccurences_by_class, vocab_tf, cor_type)
+elif cor_type == "P":
+    corcoeff = cooccurence_main.calc_corcoeff(cooccurences_by_class, vocab_tprob, cor_type)
 
+#print corcoeff[2]
 
 print "Calculating correlation-coefficients complete and it took : ", print_time(start_time)
 start_time = time.time()
@@ -115,37 +121,38 @@ start_time = time.time()
 #----------------Classification--------------------------
 
 classifier = CopulaClassifier(corcoeff, vocab_choice)
-#predictions = classifier.predict_multilabel(test_docs[0:10])
-predictions = classifier.predict_multiclass(test_docs[0:10])
+#predictions = classifier.predict_multilabel(test_docs)
+predictions = classifier.predict_multiclass(test_docs)
 
 print "The Classification is complete and it took", print_time(start_time)
+#print "Avg time taken per doc: ", (print_time(start_time)/float(len(test_docs)))
 start_time = time.time()
 
 
 print "Original:"
-print test_labels[0:10]
+print test_labels
 print "Predicted:"
 print predictions
 
 
-"""
+
 #-----------------Evaluation ----------------------
-precision = precision_score(test_labels[0:10], predictions, average='micro')
-recall = recall_score(test_labels[0:10], predictions, average='micro')
-f1 = f1_score(test_labels[0:10], predictions, average='micro')
+precision = precision_score(test_labels, predictions, average='micro')
+recall = recall_score(test_labels, predictions, average='micro')
+f1 = f1_score(test_labels, predictions, average='micro')
 
 print("Micro-average quality numbers")
 print("Precision: {:.4f}, Recall: {:.4f}, F1-measure: {:.4f}".format(precision, recall, f1))
 
-precision = precision_score(test_labels[0:10], predictions, average='macro')
-recall = recall_score(test_labels[0:10], predictions, average='macro')
-f1 = f1_score(test_labels[0:10], predictions, average='macro')
+precision = precision_score(test_labels, predictions, average='macro')
+recall = recall_score(test_labels, predictions, average='macro')
+f1 = f1_score(test_labels, predictions, average='macro')
 
 print("Macro-average quality numbers")
 print("Precision: {:.4f}, Recall: {:.4f}, F1-measure: {:.4f}".format(precision, recall, f1))
 
 print "Evaluation complete and it took : ", print_time(start_time)
-"""
+
 
 
 
@@ -158,7 +165,7 @@ print "Total time taken : ", (time.time() - program_start)/60.0, "minuites"
 
 
 
-"######################### Bugs #########################"
+"######################### Checking outputs #########################"
 
 #print "Documents : ", getsizeof(documents)
 
