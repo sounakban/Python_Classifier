@@ -7,7 +7,7 @@ import functools
 
 #----------------------Global Functions----------------------
 
-def classify(corcoeff, vocab, test_docs, num, que, predtype):
+def classify(corcoeff, vocab, priors, test_docs, num, que, predtype):
     predictions = [num]
     for doc in test_docs:
         scorelist = []
@@ -19,12 +19,14 @@ def classify(corcoeff, vocab, test_docs, num, que, predtype):
             curr_vocab = vocab[i]
             sub_scores = map(functools.partial(get_scores_one, curr_coeffs, curr_vocab), cooccurences.keys())
             sub_scores = list(filter(None, sub_scores))
-            score = sum(sub_scores)
-            #score = exp(sum(sub_scores))
+            sub_scores = numpy.log(numpy.array(sub_scores))
+            #priors = (numpy.array(priors)/min(priors)).tolist()
+            score = numpy.sum(sub_scores)#/priors[i]
+            #print score, len(sub_scores)
             scorelist.append(score)
         prediction = score2pred(scorelist, predtype)
+        #print scorelist
         predictions.append(prediction)
-        #print "Doc complete"
     que.put(predictions)
 
 
@@ -52,7 +54,6 @@ def classify_OnevsAll(corcoeff, vocab, test_docs, num, que, predtype):
             else:
                 prediction.append(0)
         predictions.append(prediction)
-        #print "Doc complete"
     que.put(predictions)
 
 
@@ -64,9 +65,12 @@ def classify_OnevsAll(corcoeff, vocab, test_docs, num, que, predtype):
 #----------------------Common Functions----------------------
 
 def get_scores_one(curr_coeffs, curr_vocab, pair):
-    if pair in curr_coeffs:
-        theta = curr_coeffs[pair]
-        return bivariate_gumbel(curr_vocab[pair[0]], curr_vocab[pair[1]], theta)
+    if pair[0] not in curr_vocab or pair[1] not in curr_vocab:
+        return 0.0;
+    theta = curr_coeffs.get(pair, 1)
+    #print pair, curr_vocab[pair[0]], curr_vocab[pair[1]], curr_coeffs[pair]
+    #return bivariate_gumbel(curr_vocab.get(pair[0], 0.1**6), curr_vocab.get(pair[1], 0.1**6), theta)
+    return bivariate_gumbel(curr_vocab[pair[0]], curr_vocab[pair[1]], theta)
 
 def get_scores_all(corcoeff, vocab, i, pair):
     max_theta = 0.0

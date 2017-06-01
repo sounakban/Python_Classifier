@@ -21,7 +21,7 @@ for cooc in file_coocs:
 
 print "##########################################################################################"
 
-test_min = [0, 3 , 2, 4, 7, 6, 9, 1]
+test_min = [5, 3 , 2, 4, 7, 6, 9, 8]
 test_min.append(0)
 print test_min
 print test_min.index(min((test_min)))
@@ -72,3 +72,42 @@ from copula_utils import score2pred
 test_scores = [-1123, -586, -754, -1098, -645, -478]
 print test_scores
 print score2pred(test_scores, "multi")
+print "##########################################################################################"
+
+#Keep top n elements of a dictionary
+import operator
+
+test_dic = {'a':1, 'b':84, 'c': 3, 'd':0, 'e':43, 'f': 9, 'g':105, 'h':83, 'i': 319, }
+test_dic = dict(sorted(test_dic.iteritems(), key=operator.itemgetter(1), reverse=True)[:5])
+print test_dic
+print "##########################################################################################"
+
+#Test creating list through map and creating numpy matrix
+import numpy
+
+test1 = [[1,2],[3,4],[5,6],[7,8]]
+test = []
+test.extend(map(lambda x : x, test1))
+print test
+test = numpy.vstack([ test,[9,10] ])
+print test
+test = []
+test.extend(map(lambda x : x, test_scores))
+print test
+x = numpy.array(test1)
+print x.shape
+print "##########################################################################################"
+
+from sklearn.datasets import load_iris
+from sklearn.feature_selection import SelectKBest
+from sklearn.feature_selection import chi2
+iris = load_iris()
+X, y = iris.data, iris.target
+print X.shape
+selector = SelectKBest(chi2, k=2)
+X_new = selector.fit_transform(X, y)
+print X_new.shape
+print selector.get_support(indices = True)
+print "##########################################################################################"
+
+print len("This is a test string.")
