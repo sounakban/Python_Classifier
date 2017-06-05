@@ -2,7 +2,7 @@ import numpy
 from multiprocessing import Process, Queue, cpu_count
 thread_count = int(cpu_count()*0.75)
 
-from copula_utils import classify, classify_OnevsAll
+from copula_utils import classify
 
 class CopulaClassifier:
 
@@ -14,7 +14,6 @@ class CopulaClassifier:
 
 
     def predict_multiclass(self, test_docs):
-
         predictions_list = []
         predictions_dict = {}
         que = Queue()
@@ -46,7 +45,6 @@ class CopulaClassifier:
 
 
     def predict_multilabel(self, test_docs):
-
         predictions_list = []
         predictions_dict = {}
         que = Queue()
@@ -58,7 +56,7 @@ class CopulaClassifier:
                 end = (i+1)*div
                 if end > len(test_docs):
                     end = len(test_docs)
-                processes.append(Process(target=classify_OnevsAll, args=( self.corcoeff, self.vocab, test_docs[i*div:end], i, que, "multi" )))
+                processes.append(Process(target=classify, args=( self.corcoeff, self.vocab, self.priors, test_docs[i*div:end], i, que, "multi" )))
             for pro in processes:
                 pro.start()
             for pro in processes:
@@ -69,6 +67,6 @@ class CopulaClassifier:
             for i in range(len(processes)):
                 predictions_list.extend(predictions_dict[i])
         else:
-            classify_OnevsAll(self.corcoeff, self.vocab, test_docs, 0, que, "multi")
+            classify(self.corcoeff, self.vocab, self.priors, test_docs, 0, que, "multi")
             predictions_list.extend(que.get()[1:])
         return numpy.array(predictions_list)

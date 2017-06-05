@@ -63,13 +63,6 @@ for cat in reuters.categories():
 train_docs_id = new_train_docs_id
 test_docs_id = new_test_docs_id
 #"""
-"""
-    if len(li)>20 and len(li_te)>20:
-        documents.extend(li)
-        documents.extend(li_te)
-train_docs_id = list(filter(lambda doc: doc.startswith("train"), documents))
-test_docs_id = list(filter(lambda doc: doc.startswith("test"), documents))
-#"""
 
 """
 #90 Categories

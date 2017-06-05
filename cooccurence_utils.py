@@ -5,6 +5,40 @@ from functools import partial
 
 
 
+
+
+################################## For finding Cooccurences ##################################
+
+def get_Simple_Prob(cooccur):
+    tot = float(numpy.sum(numpy.array(cooccur.values())))
+    values = (numpy.array(cooccur.values())/tot).tolist()
+    res = dict(itertools.izip(cooccur.keys(), values))
+    return res
+
+
+def get_P_AandB(parameter):
+    cooccur = parameter[0]
+    vocab_tf = parameter[1]
+    vocab_tprob = parameter[2]
+    map(partial(P_AandB_formula, cooccur, vocab_tf, vocab_tprob), cooccur.keys())
+    return cooccur
+
+def P_AandB_formula(cooccur, vocab_tf, vocab_tprob, pair):
+    if pair[0] in vocab_tf and pair[1] in vocab_tf:
+        P_BgivenA = cooccur[pair]/float(vocab_tf[pair[0]])
+        #if(P_BgivenA > 1):
+            #print "P_BgivenA > 1, @ get_P_AandB"
+        P_AandB = vocab_tprob[pair[0]] * P_BgivenA
+        if(P_AandB > 1):
+            print "P_AandB > 1, @ get_P_AandB"
+            del cooccur[pair]
+        elif(P_AandB == 0.0):
+            print pair, ": {}/{}= {}. {}".format(cooccur[pair], vocab_tf[pair[0]], P_BgivenA, vocab_tprob[pair[0]])
+        else:
+            cooccur[pair] = P_AandB
+    else:
+        del cooccur[pair]
+
 def feature_selection(cooccurence_list):
     import operator
     #"""
@@ -34,6 +68,9 @@ def feature_selection(cooccurence_list):
         if len(cooccurence_list[i]) > 500:
             cooccurence_list[i] = dict(sorted(cooccurence_list[i].iteritems(), key=operator.itemgetter(1), reverse=True)[:500])
     #"""
+
+
+
 
 
 ################################## For Correlation-Coefficients ##################################
@@ -75,8 +112,6 @@ def Jaccard_formula(curr_cooccur, curr_vocab, pair):
     else:
         del curr_cooccur[pair]
 
-
-
 def normalize_corcoeff(cooccurence_list):
     curr_list = cooccurence_list
     value_list = curr_list.values()
@@ -86,43 +121,7 @@ def normalize_corcoeff(cooccurence_list):
             curr_list[pair] = 1
             #curr_list[pair] = curr_list[pair]/mean
         else:
-            curr_list[pair] = curr_list[pair]/mean
+            curr_list[pair] = (curr_list[pair]/mean)**2
             if curr_list[pair] > 100.0:
                 print "@normalize: ", pair, curr_list[pair]
     return curr_list
-
-
-
-
-
-################################## For finding Cooccurences ##################################
-
-def get_Simple_Prob(cooccur):
-    tot = float(numpy.sum(numpy.array(cooccur.values())))
-    values = (numpy.array(cooccur.values())/tot).tolist()
-    res = dict(itertools.izip(cooccur.keys(), values))
-    return res
-
-
-def get_P_AandB(parameter):
-    cooccur = parameter[0]
-    vocab_tf = parameter[1]
-    vocab_tprob = parameter[2]
-    map(partial(P_AandB_formula, cooccur, vocab_tf, vocab_tprob), cooccur.keys())
-    return cooccur
-
-def P_AandB_formula(cooccur, vocab_tf, vocab_tprob, pair):
-    if pair[0] in vocab_tf and pair[1] in vocab_tf:
-        P_BgivenA = cooccur[pair]/float(vocab_tf[pair[0]])
-        #if(P_BgivenA > 1):
-            #print "P_BgivenA > 1, @ get_P_AandB"
-        P_AandB = vocab_tprob[pair[0]] * P_BgivenA
-        if(P_AandB > 1):
-            print "P_AandB > 1, @ get_P_AandB"
-            del cooccur[pair]
-        elif(P_AandB == 0.0):
-            print pair, ": {}/{}= {}. {}".format(cooccur[pair], vocab_tf[pair[0]], P_BgivenA, vocab_tprob[pair[0]])
-        else:
-            cooccur[pair] = P_AandB
-    else:
-        del cooccur[pair]
