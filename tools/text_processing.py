@@ -21,7 +21,7 @@ def tokenize(text, word_length = 3):
   return filtered_tokens
 
 
-def freqToProbability(term_freq, all_term, lamda):
+def freqToProbability(term_freq, complement_termfreq, all_term, lamda):
   vocab = term_freq.keys()
   tf_values = term_freq.values()
   #Divide by total freq
@@ -29,19 +29,26 @@ def freqToProbability(term_freq, all_term, lamda):
   tf_values_array = numpy.array(tf_values)/tot
   prob_values = tf_values_array.tolist()
   term_prob = dict(itertools.izip(vocab, prob_values))
+  #Repeat for complement set
+  vocab = complement_termfreq.keys()
+  tf_values = complement_termfreq.values()
+  tot = float(sum(tf_values))
+  tf_values_array = numpy.array(tf_values)/tot
+  prob_values = tf_values_array.tolist()
+  complement_term_prob = dict(itertools.izip(vocab, prob_values))
   #Perform Jelinek-Mercer Smoothing
-  term_prob = {k: (term_prob.get(k, 0.0)*lamda + v*(1.0-lamda)) for k, v in all_term.items()}
+  term_prob = {k: (term_prob.get(k, 0.0)*lamda + complement_term_prob.get(k, 0.0)*(1.0-lamda)) for k in all_term.keys()}
   return term_prob
 
 
 
 
-def get_TF(vectorizer_tf, vectorised_train_documents_tf, doc_list):
+def get_TF(vectorizer_tf, vectorised_document_tfs, doc_list):
     #vocab contains term-index pair
     vocab = vectorizer_tf.vocabulary_
     #sorted_vocab contains list of terms sorted on index
     sorted_vocab = [item[0] for item in sorted(vocab.items(), key=operator.itemgetter(1))]
-    tf_values = numpy.array(vectorised_train_documents_tf[doc_list, :].sum(axis=0))[0].tolist()
+    tf_values = numpy.array(vectorised_document_tfs[doc_list, :].sum(axis=0))[0].tolist()
     #vocab_tf_new is a dictionary that stores, freq of each term summed over all docs
     vocab_tf = dict(itertools.izip(sorted_vocab, tf_values))
     vocab_tf_new = {key: value for key, value in vocab_tf.items() if value != 0}

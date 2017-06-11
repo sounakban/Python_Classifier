@@ -4,12 +4,12 @@ from sklearn.feature_extraction.text import TfidfVectorizer, CountVectorizer
 from sklearn.preprocessing import MultiLabelBinarizer
 from nltk.corpus import stopwords
 stop_words = stopwords.words("english")
-import cooccurence_main
-from text_processing import tokenize, get_TF, get_TFIDF, freqToProbability
+import tools.cooccurence_main as cooccurence_main
+from tools.text_processing import tokenize, get_TF, get_TFIDF, freqToProbability
 import numpy
 
 #Classification
-from CopulaClassifier import CopulaClassifier
+from tools.CopulaClassifier import CopulaClassifier
 
 #Evaluation
 from sklearn.metrics import f1_score, precision_score, recall_score
@@ -37,7 +37,11 @@ cor_type = input("Enter correlation coefficient in QUOTES [P for PMI, J for Jacc
 if cor_type != "J" and cor_type != "P":
     raise ValueError ("Unrecognised option for correlation coefficient.")
 #Lamda for Jelinek-Mercer Smoothing
-lamda = 0.85
+lamda = 0.90
+#Boost value of correlation-coefficients
+coorelation_boost = 4
+#Percentage of total term features to kepp
+feature_percent = 17
 
 start_time = time.time()
 program_start = start_time
@@ -47,7 +51,6 @@ program_start = start_time
 
 #----------------Get Corpus--------------------------
 
-#"""
 #Top 10
 documents = [f for f in reuters.fileids() if len(reuters.categories(fileids=f))==1]
 train_docs_id = list(filter(lambda doc: doc.startswith("train") and len(reuters.raw(doc))>51, documents))
@@ -55,22 +58,13 @@ test_docs_id = list(filter(lambda doc: doc.startswith("test") and len(reuters.ra
 new_train_docs_id = []
 new_test_docs_id = []
 for cat in reuters.categories():
-    li=[f for f in reuters.fileids(categories=cat) if f in train_docs_id]
+    li = [f for f in reuters.fileids(categories=cat) if f in train_docs_id]
     li_te = [f for f in reuters.fileids(categories=cat) if f in test_docs_id]
     if len(li)>20 and len(li_te)>20:
         new_train_docs_id.extend(li)
         new_test_docs_id.extend(li_te)
 train_docs_id = new_train_docs_id
 test_docs_id = new_test_docs_id
-#"""
-
-"""
-#90 Categories
-documents = reuters.fileids()
-train_docs_id = list(filter(lambda doc: doc.startswith("train") and len(reuters.raw(doc))>51, documents))
-test_docs_id = list(filter(lambda doc: doc.startswith("test") and len(reuters.raw(doc))>51, documents))
-#test_docs_id = [test_docs_id[10]]
-#"""
 
 train_docs = [reuters.raw(doc_id) for doc_id in train_docs_id]
 test_docs = [reuters.raw(doc_id) for doc_id in test_docs_id]
@@ -80,14 +74,17 @@ mlb = MultiLabelBinarizer()
 train_labels = mlb.fit_transform([reuters.categories(doc_id) for doc_id in train_docs_id])
 test_labels = mlb.transform([reuters.categories(doc_id) for doc_id in test_docs_id])
 
+#Create label-complement matrix
+train_labels_complement = numpy.zeros(shape=train_labels.shape);    train_labels_complement.fill(1)
+train_labels_complement =  train_labels_complement - train_labels
 
 #Get Class Prior Prob
+#"""
 priors = []
-"""
 for i in range(train_labels.shape[1]):
     classdoc_ids = numpy.nonzero(train_labels[:, i])[0].tolist()
     priors.append(len(classdoc_ids)/float(train_labels.shape[0]))
-"""
+#"""
 
 print "Building file list complete and it took : ", print_time(start_time)
 start_time = time.time()
@@ -101,7 +98,7 @@ start_time = time.time()
 # Learn and transform documents [tf]
 vectorizer_tf = CountVectorizer(stop_words=stop_words, tokenizer=tokenize)
 vectorised_train_documents_tf = vectorizer_tf.fit_transform(train_docs)
-vectorised_test_documents_tf = vectorizer_tf.transform(test_docs)
+#vectorised_test_documents_tf = vectorizer_tf.transform(test_docs)
 """
 if weight == "tfidf":
     # Learn and transform documents [tfidf]
@@ -110,27 +107,35 @@ if weight == "tfidf":
     vectorised_test_documents_tfidf = vectorizer_tfidf.transform(test_docs)
 """
 
-#Devide features by class
 def add2dict(k, v, all_term):
     all_term[k]=  all_term.get(k, 0.0) + v
 
-term_freq = {}; term_prob = {}; all_term = {}; tot_freq = 0.0
+#Devide features by class
+term_freq = {}; all_term = {}; tot_freq = 0.0
 for i in range(train_labels.shape[1]):
     classdoc_ids = numpy.nonzero(train_labels[:, i])[0].tolist()
     term_freq[i] = get_TF(vectorizer_tf, vectorised_train_documents_tf, classdoc_ids)
-    map(lambda (k, v): add2dict(k, v, all_term), term_freq[i].items())[0]
+    map(lambda (k, v): add2dict(k, v, all_term), term_freq[i].items())
     tot_freq += sum(term_freq[i].values())
-vocab_choice = term_prob
 all_term = {k: v/tot_freq for k, v in all_term.items()}
+#Devide features by class-complements
+compl_term_freq = {}
+for i in range(train_labels.shape[1]):
+    classdoc_ids = numpy.nonzero(train_labels_complement[:, i])[0].tolist()
+    compl_term_freq[i] = get_TF(vectorizer_tf, vectorised_train_documents_tf, classdoc_ids)
 #Convert to Probability & Perform Jelinek-Mercer Smoothing
+term_prob = {}
 if weight == "tf" or cor_type == "P":
     for i in range(train_labels.shape[1]):
-        term_prob[i] = freqToProbability(term_freq[i], all_term, lamda)
+        term_prob[i] = freqToProbability(term_freq[i], compl_term_freq[i], all_term, lamda)
+vocab_choice = term_prob
 
+#Clear memory for unused variables
+all_term = {}
+vectorised_train_documents_tf = []
 
 print "Generating term-weights complete and it took : ", print_time(start_time)
 start_time = time.time()
-
 
 
 #Find cooccurences for all classes
@@ -142,16 +147,20 @@ elif cor_type == "P":
 print "Generating term-cooccurences complete and it took : ", print_time(start_time)
 start_time = time.time()
 
-#print {k:v for k,v in cooccurences_by_class[2].items() if v<=0.0 or v>=1.0}
-
 
 #Find Correlation Coefficient Values
 if cor_type == "J":
-    corcoeff = cooccurence_main.calc_corcoeff(cooccurences_by_class, term_freq, cor_type)
+    corcoeff = cooccurence_main.calc_corcoeff(cooccurences_by_class, term_freq, cor_type, boost = coorelation_boost)
 elif cor_type == "P":
-    corcoeff = cooccurence_main.calc_corcoeff(cooccurences_by_class, term_prob, cor_type)
+    corcoeff = cooccurence_main.calc_corcoeff(cooccurences_by_class, term_prob, cor_type, boost = coorelation_boost)
 
-#print corcoeff[2]
+#Clear memory for unused variables
+cooccurences_by_class = []
+term_freq = []
+
+#Perform feature selection on terms
+from tools.cooccurence_utils import feature_selection
+feature_selection(term_prob, feature_list = all_term.keys(), n_features = 0, percent = feature_percent)
 
 print "Calculating correlation-coefficients complete and it took : ", print_time(start_time)
 start_time = time.time()
@@ -162,11 +171,9 @@ start_time = time.time()
 #----------------Classification--------------------------
 
 classifier = CopulaClassifier(corcoeff, vocab_choice, priors)
-#predictions = classifier.predict_multilabel(test_docs)
 predictions = classifier.predict_multiclass(test_docs)
 
 print "The Classification is complete and it took", print_time(start_time)
-#print "Avg time taken per doc: ", (print_time(start_time)/float(len(test_docs)))
 start_time = time.time()
 
 """
@@ -231,5 +238,7 @@ print term_freq[4].keys()[9], " : ", term_freq[4].values()[9]
 print "cooccurences_by_class : ", getsizeof(cooccurences_by_class)
 print cooccurences_by_class[4].values()
 """
+
+#print {k:v for k,v in cooccurences_by_class[2].items() if v<=0.0 or v>=1.0}
 
 #print corcoeff[4].values()[:20]

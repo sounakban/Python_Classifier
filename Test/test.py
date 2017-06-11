@@ -28,3 +28,9 @@ test_array = numpy.array(test_list)
 print test_array
 print test_array.tolist()
 print "##########################################################################################"
+
+#Test dictionary update function
+test_dict["tt"] = 3
+test_dict.update((k, v+test_dict[k]) for k, v in dict_test2.items())
+print test_dict
+print "##########################################################################################"

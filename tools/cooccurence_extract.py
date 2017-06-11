@@ -60,8 +60,6 @@ def process_dir(location):
 
 
 def add_to_dict(all_pairs, pair):
-    pair_set = frozenset(pair)
-    if pair_set in all_pairs:
-        all_pairs[pair_set] += 1
-    else:
-        all_pairs[pair_set] = 1
+    if(len(pair)==2):
+        pair_set = frozenset(pair)
+        all_pairs[pair_set] = 1 + all_pairs.get(pair_set, 0)

@@ -4,11 +4,13 @@ import numpy
 import functools
 
 
-def classify(corcoeff, vocab, priors, test_docs, num, que, predtype):
-    if predtype == "multi":
-        from Thresholding import M_Cut#, P_Cut
-    predictions = [num]
-    all_scores = []
+def classify(corcoeff, vocab, priors, test_docs, num, que):
+    if len(priors)==0:
+        log_priors = [0]*len(corcoeff)
+    else:
+        log_priors = numpy.log(numpy.array(priors)).tolist()
+    #print "LENGTH: ", len(log_priors)
+    all_scores = [num]
     for doc in test_docs:
         scorelist = []
         doc_repr = process_text(doc)
@@ -17,29 +19,24 @@ def classify(corcoeff, vocab, priors, test_docs, num, que, predtype):
             sub_scores = []
             curr_coeffs = corcoeff[i]
             curr_vocab = vocab[i]
-            sub_scores = map(functools.partial(get_scores_one, curr_coeffs, curr_vocab), cooccurences.keys())
+            sub_scores = map(functools.partial(get_scores, curr_coeffs, curr_vocab), cooccurences.keys())
             sub_scores = list(filter(None, sub_scores))
             sub_scores = numpy.log(numpy.array(sub_scores))
             #priors = (numpy.array(priors)/min(priors)).tolist()
-            score = numpy.sum(sub_scores)#/priors[i]
+            score = numpy.sum(sub_scores)+log_priors[i]
             #print score, len(sub_scores)
             scorelist.append(score)
+        #print sorted(scorelist, reverse=False)
         #print scorelist
-        if predtype == "single":
-            prediction = pred_maxScore(scorelist)
-            predictions.append(prediction)
-        if predtype == "multi":
-            all_scores.append(scorelist)
-    if predtype == "multi":
-        predictions.extend(M_Cut(all_scores))
-    que.put(predictions)
+        all_scores.append(scorelist)
+    que.put(all_scores)
 
 
 
 
 #----------------------Common Functions----------------------
 
-def get_scores_one(curr_coeffs, curr_vocab, pair):
+def get_scores(curr_coeffs, curr_vocab, pair):
     if pair[0] not in curr_vocab or pair[1] not in curr_vocab:
         return 0.0;
     theta = curr_coeffs.get(pair, 1)
@@ -64,3 +61,17 @@ def pred_maxScore(scores):
     pred = [0]*len(scores)
     pred[scores.index(max(scores))] = 1
     return numpy.array(pred)
+
+
+def pred_ScoreBR(scores):
+    num_classes = len(scores)/2
+    classes = [i for i in range(num_classes) if scores[i] > scores[num_classes + i]]
+    """
+    tot_diff = [abs(scores[i] - scores[num_classes + i]) for i in range(num_classes) if scores[i] > scores[num_classes + i]]
+    avg_diff = sum(tot_diff)/float(len(tot_diff))
+    classes = [i for i in range(num_classes) if abs(scores[i] - scores[num_classes + i]) >= avg_diff]
+    """
+    pred = [0]*num_classes
+    for i in classes:
+        pred[i] = 1
+    return pred
