@@ -34,7 +34,7 @@ if cor_type != "J" and cor_type != "P":
 #Lamda for Jelinek-Mercer Smoothing
 lamda = 0.85
 #Boost value of correlation-coefficients
-coorelation_boost = 4
+coorelation_boost = 2
 #Percentage of total term features to kepp
 feature_percent = 17
 

@@ -11,34 +11,36 @@ import numpy
 
 cachedStopWords = stopwords.words("english")
 def tokenize(text, word_length = 3):
-  min_length = word_length
-  words = map(lambda word: word.lower(), word_tokenize(text))
-  words = [word for word in words if word not in cachedStopWords]
-  tokens = (list(map(lambda token: PorterStemmer().stem(token), words)))
-  p = re.compile('[a-zA-Z]+');
-  filtered_tokens = list(filter (lambda token: p.match(token) and
+    min_length = word_length
+    words = map(lambda word: word.lower(), word_tokenize(text))
+    words = [word for word in words if word not in cachedStopWords]
+    tokens = (list(map(lambda token: PorterStemmer().stem(token), words)))
+    p = re.compile('[a-zA-Z]+');
+    filtered_tokens = list(filter (lambda token: p.match(token) and
                                len(token) >= min_length, tokens))
-  return filtered_tokens
+    return filtered_tokens
 
 
 def freqToProbability(term_freq, complement_termfreq, all_term, lamda):
-  vocab = term_freq.keys()
-  tf_values = term_freq.values()
-  #Divide by total freq
-  tot = float(sum(tf_values))
-  tf_values_array = numpy.array(tf_values)/tot
-  prob_values = tf_values_array.tolist()
-  term_prob = dict(itertools.izip(vocab, prob_values))
-  #Repeat for complement set
-  vocab = complement_termfreq.keys()
-  tf_values = complement_termfreq.values()
-  tot = float(sum(tf_values))
-  tf_values_array = numpy.array(tf_values)/tot
-  prob_values = tf_values_array.tolist()
-  complement_term_prob = dict(itertools.izip(vocab, prob_values))
-  #Perform Jelinek-Mercer Smoothing
-  term_prob = {k: (term_prob.get(k, 0.0)*lamda + complement_term_prob.get(k, 0.0)*(1.0-lamda)) for k in all_term.keys()}
-  return term_prob
+    if len(term_freq) == 1:
+        return {}
+    vocab = term_freq.keys()
+    tf_values = term_freq.values()
+    #Divide by total freq
+    tot = float(sum(tf_values))+1
+    tf_values_array = numpy.array(tf_values)/tot
+    prob_values = tf_values_array.tolist()
+    term_prob = dict(itertools.izip(vocab, prob_values))
+    #Repeat for complement set
+    vocab = complement_termfreq.keys()
+    tf_values = complement_termfreq.values()
+    tot = float(sum(tf_values))+1
+    tf_values_array = numpy.array(tf_values)/tot
+    prob_values = tf_values_array.tolist()
+    complement_term_prob = dict(itertools.izip(vocab, prob_values))
+    #Perform Jelinek-Mercer Smoothing
+    term_prob = {k: (term_prob.get(k, 0.0)*lamda + complement_term_prob.get(k, 0.0)*(1.0-lamda)) for k in all_term.keys()}
+    return term_prob
 
 
 

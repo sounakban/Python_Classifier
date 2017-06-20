@@ -1,7 +1,31 @@
+#Take required user inputs
+weight = "tf"
+cor_type = input("Enter correlation coefficient in QUOTES [P for PMI, J for Jaccard] : ").upper()
+if cor_type != "J" and cor_type != "P":
+    raise ValueError ("Unrecognised option for correlation coefficient.")
+#Lamda for Jelinek-Mercer Smoothing
+lamda = 0.95
+#Boost value of correlation-coefficients
+coorelation_boost = 2
+#Percentage of total term features to kepp
+feature_percent = 17
+
+
+
+#----------------Begin Program--------------------------
+
+
+#Corpus Data
+from sklearn.datasets import fetch_rcv1
+rcv1_info = fetch_rcv1()
+sklearn_labelMatrix = rcv1_info.target.toarray()
+sklearn_docIDs = rcv1_info.sample_id
+rcv1_info = []
+from tools.getRCV1V2 import getRCV1V2
+rcv1_data = getRCV1V2("/Volumes/Files/Work/Research/Information Retrieval/1) Data/Reuters/RCV/RCV/RCV1-V2/Raw Data/", testset=1)
+
 #Feature Extraction
-from nltk.corpus import reuters
 from sklearn.feature_extraction.text import TfidfVectorizer, CountVectorizer
-from sklearn.preprocessing import MultiLabelBinarizer
 from nltk.corpus import stopwords
 stop_words = stopwords.words("english")
 import tools.cooccurence_main as cooccurence_main
@@ -26,39 +50,38 @@ def print_time(start_time):
 
 
 
-#Take required user inputs
-weight = "tf"
-cor_type = input("Enter correlation coefficient in QUOTES [P for PMI, J for Jaccard] : ").upper()
-if cor_type != "J" and cor_type != "P":
-    raise ValueError ("Unrecognised option for correlation coefficient.")
-#Lamda for Jelinek-Mercer Smoothing
-lamda = 0.95
-#Boost value of correlation-coefficients
-coorelation_boost = 1
-#Percentage of total term features to kepp
-feature_percent = 17
+
+#----------------Get Corpus--------------------------
 
 start_time = time.time()
 program_start = start_time
 
-
-
-
-#----------------Get Corpus--------------------------
-
 #90 Categories
-documents = reuters.fileids()
-train_docs_id = list(filter(lambda doc: doc.startswith("train") and len(reuters.raw(doc))>51, documents))
-test_docs_id = list(filter(lambda doc: doc.startswith("test") and len(reuters.raw(doc))>51, documents))
-#test_docs_id = [test_docs_id[2]]
+train_docs_index = range(rcv1_data.getTrainDocCount())
+print "Num of train Docs: ", len(train_docs_index)
+test_docs_index = range(rcv1_data.getTrainDocCount(), rcv1_data.getTotalDocCount())
+print "Num of test Docs: ", len(test_docs_index)
+#test_docs_index = [test_docs_index[2]]
 
-train_docs = [reuters.raw(doc_id) for doc_id in train_docs_id]
-test_docs = [reuters.raw(doc_id) for doc_id in test_docs_id]
+documents = rcv1_data.getData()
+train_docs = [documents[doc_id] for doc_id in train_docs_index]
+test_docs = [documents[doc_id] for doc_id in test_docs_index]
+documents = []
 
-# Transform for multilabel compatibility
-mlb = MultiLabelBinarizer()
-train_labels = mlb.fit_transform([reuters.categories(doc_id) for doc_id in train_docs_id])
-test_labels = mlb.transform([reuters.categories(doc_id) for doc_id in test_docs_id])
+#Get Doc-Label Matrices
+test_docIDs = [rcv1_data.getDocIDs()[i] for i in test_docs_index]
+sklearn_testIndices = []
+sklearn_testIndices.append(numpy.where(sklearn_docIDs == test_docIDs[0])[0][0])
+i = sklearn_testIndices[0]+1; j = 1
+while(j<len(test_docIDs)):
+    if sklearn_docIDs[i] == test_docIDs[j]:
+        sklearn_testIndices.append(i)
+        i+=1; j+=1
+    else:
+        print "Disparity at test doc num: ", j
+        break
+train_labels = numpy.array([sklearn_labelMatrix[i] for i in train_docs_index])
+test_labels = numpy.array([sklearn_labelMatrix[i] for i in sklearn_testIndices])
 
 #Create label complement matrix
 train_labels_complement = numpy.zeros(shape=train_labels.shape);    train_labels_complement.fill(1)
@@ -67,7 +90,6 @@ train_labels_complement =  train_labels_complement - train_labels
 num_labels = train_labels.shape[1]
 
 #Get Class Prior Prob
-#"""
 priors = []
 for i in range(num_labels):
     classdoc_ids = numpy.nonzero(train_labels[:, i])[0].tolist()
@@ -75,7 +97,10 @@ for i in range(num_labels):
 for i in range(num_labels):
     classdoc_ids = numpy.nonzero(train_labels_complement[:, i])[0].tolist()
     priors.append(len(classdoc_ids)/float(train_labels.shape[0]))
-#"""
+
+
+#Unused variables
+sklearn_labelMatrix = []; sklearn_testIndices = []; sklearn_docIDs = []; rcv1_data = []
 
 print "Building file list complete and it took : ", print_time(start_time)
 start_time = time.time()
@@ -97,9 +122,13 @@ def add2dict(k, v, features):
     features[k]=  features.get(k, 0.0) + v
 
 
+
 #Devide features by class
 for i in range(num_labels):
     classdoc_ids = numpy.nonzero(train_labels[:, i])[0].tolist()
+    if len(classdoc_ids) == 0:
+        term_freq[i] = {term_freq[i-1].keys()[0]: 0}
+        continue
     term_freq[i] = get_TF(vectorizer_tf, vectorised_train_documents_tf, classdoc_ids)
     map(lambda (k, v): add2dict(k, v, all_terms), term_freq[i].items())
     totterms += sum(term_freq[i].values())
@@ -115,11 +144,8 @@ if weight == "tf" or cor_type == "P":
         term_prob[num_labels + i] = freqToProbability(term_freq[num_labels + i], term_freq[i], all_terms_prob, lamda)
 vocab_choice = term_prob
 
-
 #Clear memory for unused variables
-all_terms = {}
-all_terms_prob = {}
-vectorised_train_documents_tf = []
+all_terms = {}; all_terms_prob = {}; vectorised_train_documents_tf = []
 
 print "Generating term-weights complete and it took : ", print_time(start_time)
 start_time = time.time()
@@ -201,38 +227,3 @@ print "Evaluation complete and it took : ", print_time(start_time)
 
 
 print "Total time taken : ", (time.time() - program_start)/60.0, "minuites"
-
-
-
-
-
-
-
-
-"######################### Checking outputs #########################"
-
-#print "Documents : ", getsizeof(documents)
-
-#print numpy.nonzero(train_labels[4, :])[0].tolist()
-
-"""
-Rows: Docs ; Columns: Terms
-print vectorised_test_documents_tfidf[[1, 3], :].shape
-print vectorised_test_documents_tfidf.shape
-print len(train_docs), " : ", vectorised_train_documents_tfidf.shape
-print len(test_docs), " : ", vectorised_test_documents_tfidf.shape
-"""
-
-"""
-print numpy.nonzero(term_freq[4].values())
-print term_freq[4].keys()[9], " : ", term_freq[4].values()[9]
-"""
-
-"""
-print "cooccurences_by_class : ", getsizeof(cooccurences_by_class)
-print cooccurences_by_class[4].values()
-"""
-
-#print {k:v for k,v in cooccurences_by_class[2].items() if v<=0.0 or v>=1.0}
-
-#print corcoeff[4].values()[:20]

@@ -150,7 +150,7 @@ start_time = time.time()
 
 #Find Correlation Coefficient Values
 if cor_type == "J":
-    corcoeff = cooccurence_main.calc_corcoeff(cooccurences_by_class, term_freq, cor_type, boost = coorelation_boost)
+    corcoeff = cooccurence_main.calc_corcoeff(cooccurences_by_class, term_freq, cor_type, boost = coorelation_boost/3)
 elif cor_type == "P":
     corcoeff = cooccurence_main.calc_corcoeff(cooccurences_by_class, term_prob, cor_type, boost = coorelation_boost)
 
