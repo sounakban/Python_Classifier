@@ -7,8 +7,12 @@ from copula_utils import classify
 class CopulaClassifier:
 
     def __init__(self, corcoeff, vocab, priors = []):
-        if len(corcoeff) != len(vocab) or len(vocab) != len(priors):
-            print "Check input values of CopulaClassifier initialization"
+        if len(priors) != 0:
+            if len(corcoeff) != len(vocab) or len(vocab) != len(priors):
+                print "Check input values of CopulaClassifier initialization"
+        else:
+            if len(corcoeff) != len(vocab):
+                print "Check input values of CopulaClassifier initialization"
         self.corcoeff = corcoeff
         self.vocab = vocab
         self.priors = priors
@@ -79,8 +83,8 @@ class CopulaClassifier:
             scores_list.extend(que.get()[1:])
         self.scores_list = scores_list
 
-        #predictions_list = map(M_Cut, scores_list)
-        predictions_list = map(M_Cut_mod, scores_list)
+        predictions_list = map(M_Cut, scores_list)
+        #predictions_list = map(M_Cut_mod, scores_list)
         #predictions_list = map(M_Cut_mod2, scores_list)
         return numpy.array(predictions_list)
 

@@ -23,16 +23,6 @@ def get_P_AandB(parameter):
     #Original Formula [Resource Heavy]
     map(partial(P_AandB_formula, cooccur, vocab_tf, vocab_tprob), cooccur.keys())
 
-    """
-    #Direct Formula
-    cooccur_vals = cooccur.values()
-    cooccur_keys = cooccur.keys()
-    key = vocab_tf.keys()[1]
-    div = vocab_tf[key]/vocab_tprob[key]
-    cooccur_vals = (numpy.array(cooccur_vals)/div).tolist()
-    cooccur = dict(itertools.izip(cooccur_keys, cooccur_vals))
-    """
-
     return cooccur
 
 def P_AandB_formula(cooccur, vocab_tf, vocab_tprob, pair):
@@ -52,7 +42,7 @@ def P_AandB_formula(cooccur, vocab_tf, vocab_tprob, pair):
     else:
         del cooccur[pair]
 
-def feature_selection(all_features, feature_list = [], n_features = 100, percent = 0, relative=False):
+def feature_selection(all_features, feature_list = [], n_features = 500, percent = 0, relative=False):
     import operator
 
     #If user does not provide the list of all features
@@ -105,17 +95,6 @@ def feature_selection(all_features, feature_list = [], n_features = 100, percent
             curr_features = sorted(all_features[i].keys(), key =lambda x:  pval_dict[x])[:n_features]
             all_features[i] = {pair: all_features[i][pair] for pair in curr_features}
         """
-        """
-        feature_list_sorted = sorted(pval_dict, key=pval_dict.get)
-        for i in range(len(all_features)):
-            curr_features = {}
-            for k in feature_list_sorted:
-                if k in all_features[i]:
-                    curr_features[k] = all_features[i][k]
-                    if len(curr_features) == n_features:
-                        break
-            all_features[i] = curr_features
-        """
         feature_list_sorted = sorted(pval_dict, key=pval_dict.get)
         for i in range(len(all_features)):
             curr_features = {}
@@ -126,7 +105,7 @@ def feature_selection(all_features, feature_list = [], n_features = 100, percent
                     if len(curr_features) == n_features:
                         break
             all_features[i] = curr_features
-        #"""
+        #print len( set(all_features[0].keys()) & set(all_features[1].keys()) )
     else:
         raise ValueError('@feature_selection : Enter non-zero value for n_features or percent')
 
@@ -147,7 +126,7 @@ def PMI_furmula(curr_cooccur, curr_vocab, (pair, value)):
     if pair[0] in curr_vocab and pair[1] in curr_vocab:
         ValueCheck = value/float(curr_vocab[pair[0]]*curr_vocab[pair[1]])
         if ValueCheck <= 0.0:
-            print pair, ValueCheck, value, curr_vocab[pair[0]], curr_vocab[pair[1]]
+            print pair, ValueCheck, ":", value, curr_vocab[pair[0]], curr_vocab[pair[1]]
         curr_cooccur[pair] = math.log(ValueCheck, 2)
         if curr_cooccur[pair] < 0.0:
             print "@pmi_formula: ", curr_vocab[pair[0]], curr_vocab[pair[1]], value

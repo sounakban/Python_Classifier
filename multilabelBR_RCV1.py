@@ -12,7 +12,7 @@ feature_percent = 17
 
 
 
-#----------------Begin Program--------------------------
+#-------------------------- Begin Program --------------------------
 
 
 #Corpus Data
@@ -22,7 +22,8 @@ sklearn_labelMatrix = rcv1_info.target.toarray()
 sklearn_docIDs = rcv1_info.sample_id
 rcv1_info = []
 from tools.getRCV1V2 import getRCV1V2
-rcv1_data = getRCV1V2("/Volumes/Files/Work/Research/Information Retrieval/1) Data/Reuters/RCV/RCV/RCV1-V2/Raw Data/", testset=1)
+#rcv1_data = getRCV1V2("/Volumes/Files/Work/Research/Information Retrieval/1) Data/Reuters/RCV/RCV/RCV1-V2/Raw Data/", testset=1)
+rcv1_data = getRCV1V2("/Volumes/Files/Work/Research/Information Retrieval/1) Data/Reuters/RCV/RCV/RCV1-V2/Raw Data/", testset=0)
 
 #Feature Extraction
 from sklearn.feature_extraction.text import TfidfVectorizer, CountVectorizer
@@ -51,12 +52,12 @@ def print_time(start_time):
 
 
 
-#----------------Get Corpus--------------------------
+#-------------------------- Get Corpus --------------------------
 
 start_time = time.time()
 program_start = start_time
 
-#90 Categories
+
 train_docs_index = range(rcv1_data.getTrainDocCount())
 print "Num of train Docs: ", len(train_docs_index)
 test_docs_index = range(rcv1_data.getTrainDocCount(), rcv1_data.getTotalDocCount())
@@ -108,7 +109,7 @@ start_time = time.time()
 
 
 
-#----------------Feature Extraction--------------------------
+#-------------------------- Feature Extraction --------------------------
 
 #Process all documents
 # Learn and transform documents [tf]
@@ -145,6 +146,7 @@ if weight == "tf" or cor_type == "P":
 vocab_choice = term_prob
 
 #Clear memory for unused variables
+all_terms_list = all_terms.keys()
 all_terms = {}; all_terms_prob = {}; vectorised_train_documents_tf = []
 
 print "Generating term-weights complete and it took : ", print_time(start_time)
@@ -176,12 +178,18 @@ start_time = time.time()
 
 #Perform feature selection on terms
 from tools.cooccurence_utils import feature_selection
-feature_selection(term_prob, feature_list = all_terms.keys(), n_features = 0, percent = feature_percent)
+temp = {}
+for i in range(num_labels):
+    temp[0] = term_prob[i]
+    temp[1] = term_prob[num_labels + i]
+    feature_selection(temp, feature_list = all_terms_list, n_features = 0, percent = feature_percent)
+    term_prob[i] = temp[0]
+    term_prob[num_labels + i] = temp[1]
 
 
 
 
-#----------------Classification--------------------------
+#-------------------------- Classification --------------------------
 
 classifier = CopulaClassifier(corcoeff, vocab_choice, priors)
 predictions = classifier.predict_multilabelBR(test_docs)
@@ -201,7 +209,7 @@ print predictions
 
 
 
-#-----------------Evaluation ----------------------
+#-------------------------- Evaluation ----------------------
 precision = precision_score(test_labels, predictions, average='micro')
 recall = recall_score(test_labels, predictions, average='micro')
 f1 = f1_score(test_labels, predictions, average='micro')
@@ -217,11 +225,30 @@ print("Macro-average quality numbers")
 print("Precision: {:.4f}, Recall: {:.4f}, F1-measure: {:.4f}".format(precision, recall, f1))
 
 
-print [len(numpy.nonzero(train_labels[:, i])[0].tolist()) for i in range(num_labels)]
-print [len(numpy.nonzero(test_labels[:, i])[0].tolist()) for i in range(num_labels)]
-print f1_score(test_labels, predictions, average=None)
+#print [len(numpy.nonzero(train_labels[:, i])[0].tolist()) for i in range(num_labels)]
+#print [len(numpy.nonzero(test_labels[:, i])[0].tolist()) for i in range(num_labels)]
+f1 = f1_score(test_labels, predictions, average=None)
+print f1
 
 print "Evaluation complete and it took : ", print_time(start_time)
+
+
+import numpy as np
+exp_train = np.sum(train_labels, axis=0)
+exp_test = np.sum(test_labels, axis=0)
+print "Num of train docs per category:\n", exp_train
+print "Num of test docs per category:\n", exp_test
+
+#Export to Spreadsheet
+import xlsxwriter
+
+export = np.column_stack((exp_train, exp_test, f1))
+workbook = xlsxwriter.Workbook('classscores.xlsx')
+worksheet = workbook.add_worksheet()
+row = 0
+for (x,y), value in np.ndenumerate(export):
+    worksheet.write(x, y, value)
+workbook.close()
 
 
 

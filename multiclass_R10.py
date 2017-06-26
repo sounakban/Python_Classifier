@@ -1,3 +1,24 @@
+#Take required user inputs
+"""
+weight = input("Enter weighing algorithm in QUOTES [tf or tfidf] : ").lower()
+if weight != "tfidf" and weight != "tf":
+    raise ValueError ("Unrecognised option for weighing algorithm.")
+"""
+weight = "tf"
+cor_type = input("Enter correlation coefficient in QUOTES [P for PMI, J for Jaccard] : ").upper()
+if cor_type != "J" and cor_type != "P":
+    raise ValueError ("Unrecognised option for correlation coefficient.")
+#Lamda for Jelinek-Mercer Smoothing
+lamda = 0.85
+#Boost value of correlation-coefficients
+coorelation_boost = 4
+#Percentage of total term features to kepp
+feature_percent = 17
+
+
+
+#-----------------------Imports--------------------------
+
 #Feature Extraction
 from nltk.corpus import reuters
 from sklearn.feature_extraction.text import TfidfVectorizer, CountVectorizer
@@ -26,30 +47,12 @@ def print_time(start_time):
 
 
 
-#Take required user inputs
-"""
-weight = input("Enter weighing algorithm in QUOTES [tf or tfidf] : ").lower()
-if weight != "tfidf" and weight != "tf":
-    raise ValueError ("Unrecognised option for weighing algorithm.")
-"""
-weight = "tf"
-cor_type = input("Enter correlation coefficient in QUOTES [P for PMI, J for Jaccard] : ").upper()
-if cor_type != "J" and cor_type != "P":
-    raise ValueError ("Unrecognised option for correlation coefficient.")
-#Lamda for Jelinek-Mercer Smoothing
-lamda = 0.90
-#Boost value of correlation-coefficients
-coorelation_boost = 4
-#Percentage of total term features to kepp
-feature_percent = 17
-
-start_time = time.time()
-program_start = start_time
-
-
 
 
 #----------------Get Corpus--------------------------
+
+start_time = time.time()
+program_start = start_time
 
 #Top 10
 documents = [f for f in reuters.fileids() if len(reuters.categories(fileids=f))==1]
@@ -123,16 +126,18 @@ compl_term_freq = {}
 for i in range(train_labels.shape[1]):
     classdoc_ids = numpy.nonzero(train_labels_complement[:, i])[0].tolist()
     compl_term_freq[i] = get_TF(vectorizer_tf, vectorised_train_documents_tf, classdoc_ids)
+
 #Convert to Probability & Perform Jelinek-Mercer Smoothing
 term_prob = {}
 if weight == "tf" or cor_type == "P":
     for i in range(train_labels.shape[1]):
         term_prob[i] = freqToProbability(term_freq[i], compl_term_freq[i], all_term, lamda)
+
 vocab_choice = term_prob
 
 #Clear memory for unused variables
-all_term = {}
-vectorised_train_documents_tf = []
+all_terms_list = all_term.keys()
+all_term = {};      vectorised_train_documents_tf = []
 
 print "Generating term-weights complete and it took : ", print_time(start_time)
 start_time = time.time()
@@ -158,9 +163,11 @@ elif cor_type == "P":
 cooccurences_by_class = []
 term_freq = []
 
+#"""
 #Perform feature selection on terms
 from tools.cooccurence_utils import feature_selection
 feature_selection(term_prob, feature_list = all_term.keys(), n_features = 0, percent = feature_percent)
+#"""
 
 print "Calculating correlation-coefficients complete and it took : ", print_time(start_time)
 start_time = time.time()

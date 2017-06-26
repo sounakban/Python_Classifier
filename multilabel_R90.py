@@ -1,3 +1,16 @@
+#Take required user inputs
+weight = "tf"
+cor_type = input("Enter correlation coefficient in QUOTES [P for PMI, J for Jaccard] : ").upper()
+if cor_type != "J" and cor_type != "P":
+    raise ValueError ("Unrecognised option for correlation coefficient.")
+#Lamda for Jelinek-Mercer Smoothing
+lamda = 0.85
+#Boost value of correlation-coefficients
+coorelation_boost = 2
+#Percentage of total term features to kepp
+feature_percent = 17
+
+
 #Feature Extraction
 from nltk.corpus import reuters
 from sklearn.feature_extraction.text import TfidfVectorizer, CountVectorizer
@@ -26,23 +39,10 @@ def print_time(start_time):
 
 
 
-#Take required user inputs
-weight = "tf"
-cor_type = input("Enter correlation coefficient in QUOTES [P for PMI, J for Jaccard] : ").upper()
-if cor_type != "J" and cor_type != "P":
-    raise ValueError ("Unrecognised option for correlation coefficient.")
-#Lamda for Jelinek-Mercer Smoothing
-lamda = 0.85
-#Boost value of correlation-coefficients
-coorelation_boost = 2
-#Percentage of total term features to kepp
-feature_percent = 17
+
 
 start_time = time.time()
 program_start = start_time
-
-
-
 
 #----------------Get Corpus--------------------------
 
@@ -65,8 +65,8 @@ train_labels_complement = numpy.zeros(shape=train_labels.shape);    train_labels
 train_labels_complement =  train_labels_complement - train_labels
 
 #Get Class Prior Prob
-"""
 priors = []
+#"""
 for i in range(train_labels.shape[1]):
     classdoc_ids = numpy.nonzero(train_labels[:, i])[0].tolist()
     priors.append(len(classdoc_ids)/float(train_labels.shape[0]))
@@ -90,7 +90,7 @@ def add2dict(k, v, all_term):
     all_term[k]=  all_term.get(k, 0.0) + v
 
 #Devide features by class
-term_freq = {}; term_prob = {}; all_term = {}; tot_freq = 0.0
+term_freq = {}; all_term = {}; tot_freq = 0.0
 for i in range(train_labels.shape[1]):
     classdoc_ids = numpy.nonzero(train_labels[:, i])[0].tolist()
     term_freq[i] = get_TF(vectorizer_tf, vectorised_train_documents_tf, classdoc_ids)
@@ -103,14 +103,15 @@ for i in range(train_labels.shape[1]):
     classdoc_ids = numpy.nonzero(train_labels_complement[:, i])[0].tolist()
     compl_term_freq[i] = get_TF(vectorizer_tf, vectorised_train_documents_tf, classdoc_ids)
 #Convert to Probability & Perform Jelinek-Mercer Smoothing
+term_prob = {}
 if weight == "tf" or cor_type == "P":
     for i in range(train_labels.shape[1]):
         term_prob[i] = freqToProbability(term_freq[i], compl_term_freq[i], all_term, lamda)
 vocab_choice = term_prob
 
 #Clear memory for unused variables
-all_term = {}
-vectorised_train_documents_tf = []
+all_terms_list = all_term.keys()
+all_term = {};      vectorised_train_documents_tf = []
 
 print "Generating term-weights complete and it took : ", print_time(start_time)
 start_time = time.time()
@@ -136,9 +137,11 @@ elif cor_type == "P":
 cooccurences_by_class = []
 term_freq = []
 
+#"""
 #Perform feature selection on terms
 from tools.cooccurence_utils import feature_selection
-feature_selection(term_prob, feature_list = all_term.keys(), n_features = 0, percent = feature_percent)
+feature_selection(term_prob, feature_list = all_terms_list, n_features = 0, percent = feature_percent)
+#"""
 
 print "Calculating correlation-coefficients complete and it took : ", print_time(start_time)
 start_time = time.time()
@@ -148,7 +151,7 @@ start_time = time.time()
 
 #----------------Classification--------------------------
 
-classifier = CopulaClassifier(corcoeff, vocab_choice)
+classifier = CopulaClassifier(corcoeff, vocab_choice, priors)
 predictions = classifier.predict_multilabel(test_docs)
 
 print "The Classification is complete and it took", print_time(start_time)

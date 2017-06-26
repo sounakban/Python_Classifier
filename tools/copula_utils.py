@@ -14,21 +14,26 @@ def classify(corcoeff, vocab, priors, test_docs, num, que):
     for doc in test_docs:
         scorelist = []
         doc_repr = process_text(doc)
-        cooccurences = {tuple(k):v for k,v in doc_repr.items() if len(tuple(k))==2}
+        cooccurences = {tuple(k):v for k, v in doc_repr.items()}
         for i in range(len(corcoeff)):
-            sub_scores = []
-            curr_coeffs = corcoeff[i]
-            curr_vocab = vocab[i]
-            sub_scores = map(functools.partial(get_scores, curr_coeffs, curr_vocab), cooccurences.keys())
-            sub_scores = list(filter(None, sub_scores))
-            sub_scores = numpy.log(numpy.array(sub_scores))
-            #priors = (numpy.array(priors)/min(priors)).tolist()
-            score = numpy.sum(sub_scores)+int(log_priors[i] or 0)
-            #print score, len(sub_scores)
+            if len(corcoeff[i]) == 0:
+                score = 0
+            else:
+                #sub_scores = []
+                curr_coeffs = corcoeff[i]
+                curr_vocab = vocab[i]
+                foo = functools.partial(get_scores, curr_coeffs, curr_vocab)
+                sub_scores = map(foo, cooccurences.keys())
+                sub_scores = list(filter(None, sub_scores))
+                sub_scores = numpy.log(numpy.array(sub_scores))
+                #priors = (numpy.array(priors)/min(priors)).tolist()
+                score = numpy.sum(sub_scores)+int(log_priors[i] or 0)
+                #print score, len(sub_scores)
             scorelist.append(score)
         #print sorted(scorelist, reverse=False)
         #print scorelist
         all_scores.append(scorelist)
+        doc = ""
     que.put(all_scores)
 
 
@@ -63,7 +68,7 @@ def pred_maxScore(scores):
 
 def pred_ScoreBR(scores):
     num_classes = len(scores)/2
-    classes = [i for i in range(num_classes) if scores[i] > scores[num_classes + i] and scores[i] != 0 and scores[num_classes + i] != 0]
+    classes = [i for i in range(num_classes) if scores[i] > scores[num_classes + i] and ( scores[i] != 0 or scores[num_classes + i] != 0 )]
     pred = [0]*num_classes
     for i in classes:
         pred[i] = 1
