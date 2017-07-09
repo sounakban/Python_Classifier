@@ -1,19 +1,21 @@
-from cooccurence_extract import process_text
+from cooccurence_extract import process_text, process_text_with_features
 from math import log, exp
 import numpy
 import functools
 
 
-def classify(corcoeff, vocab, priors, test_docs, num, que):
+def classify(corcoeff, vocab, priors, test_docs, num, que, all_terms = []):
     if len(priors)==0:
         log_priors = [0]*len(corcoeff)
     else:
         log_priors = numpy.ma.log(numpy.array(priors)).tolist()
-    #print "LENGTH: ", len(log_priors)
     all_scores = [num]
     for doc in test_docs:
         scorelist = []
-        doc_repr = process_text(doc)
+        if len(all_terms) > 0:
+            doc_repr = process_text_with_features(all_terms, doc)
+        else:
+            doc_repr = process_text(doc)
         cooccurences = {tuple(k):v for k, v in doc_repr.items()}
         for i in range(len(corcoeff)):
             if len(corcoeff[i]) == 0:

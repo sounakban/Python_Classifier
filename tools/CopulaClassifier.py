@@ -92,7 +92,7 @@ class CopulaClassifier:
 
 
 
-    def predict_multilabelBR(self, test_docs):
+    def predict_multilabelBR(self, test_docs, all_terms = []):
         from copula_utils import pred_ScoreBR
         scores_dict = {}
         scores_list = []
@@ -105,7 +105,7 @@ class CopulaClassifier:
                 end = (i+1)*div
                 if end > len(test_docs):
                     end = len(test_docs)
-                processes.append(Process(target=classify, args=( self.corcoeff, self.vocab, self.priors, test_docs[i*div:end], i, que)))
+                processes.append(Process(target=classify, args=( self.corcoeff, self.vocab, self.priors, test_docs[i*div:end], i, que, all_terms)))
             for pro in processes:
                 pro.start()
             for pro in processes:
@@ -119,8 +119,6 @@ class CopulaClassifier:
             classify(self.corcoeff, self.vocab, self.priors, test_docs, 0, que)
             scores_list.extend(que.get()[1:])
         self.scores_list = scores_list
-        #print scores_list[0][0:89]
-        #print scores_list[0][90:179]
 
         predictions_list = map(pred_ScoreBR, scores_list)
         return numpy.array(predictions_list)

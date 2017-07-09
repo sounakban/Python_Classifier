@@ -22,7 +22,7 @@ sklearn_labelMatrix = rcv1_info.target.toarray()
 sklearn_docIDs = rcv1_info.sample_id
 rcv1_info = []
 from tools.getRCV1V2 import getRCV1V2
-rcv1_data = getRCV1V2("/Volumes/Files/Work/Research/Information Retrieval/1) Data/Reuters/RCV/RCV/RCV1-V2/Raw Data/", testset=1)
+rcv1_data = getRCV1V2("/Volumes/Files/Work/Research/Information Retrieval/1) Data/Reuters/RCV/RCV/RCV1-V2/Raw Data/", testset=0)
 
 #Feature Extraction
 from sklearn.feature_extraction.text import TfidfVectorizer, CountVectorizer

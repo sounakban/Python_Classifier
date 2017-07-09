@@ -4,19 +4,34 @@ cor_type = input("Enter correlation coefficient in QUOTES [P for PMI, J for Jacc
 if cor_type != "J" and cor_type != "P":
     raise ValueError ("Unrecognised option for correlation coefficient.")
 #Lamda for Jelinek-Mercer Smoothing
-lamda = 0.90
+lamda = 0.85
 #Boost value of correlation-coefficients
 coorelation_boost = 4
 #Percentage of total term features to kepp
-feature_percent = 75
+feature_percent = 50
 
 
 
+#-------------------------- Begin Program --------------------------
+
+
+#Corpus Data
+from sklearn.datasets import fetch_rcv1
+rcv1_info = fetch_rcv1()
+sklearn_labelMatrix = rcv1_info.target.toarray()
+sklearn_docIDs = rcv1_info.sample_id
+rcv1_info = []
+RCV1V2Path = "/Volumes/Files/Work/Research/Information Retrieval/1) Data/Reuters/RCV/RCV/RCV1-V2/Raw Data/"
+
+from tools.getRCV1V2 import getRCV1V2
+rcv1v2_data = getRCV1V2(RCV1V2Path, testset=1)
+
+from tools.getRCV1 import getRCV1
+RCV1Path = "/Volumes/Files/Work/Research/Information Retrieval/1) Data/Reuters/RCV/RCV/rcv1/Data/"
+rcv1_data = getRCV1(RCV1Path, RCV1V2Path, testset=1)
 
 #Feature Extraction
-from nltk.corpus import reuters
 from sklearn.feature_extraction.text import TfidfVectorizer, CountVectorizer
-from sklearn.preprocessing import MultiLabelBinarizer
 from nltk.corpus import stopwords
 stop_words = stopwords.words("english")
 import tools.cooccurence_main as cooccurence_main
@@ -42,25 +57,38 @@ def print_time(start_time):
 
 
 
+#-------------------------- Get Corpus --------------------------
 
 start_time = time.time()
 program_start = start_time
 
-#----------------Get Corpus--------------------------
 
-#90 Categories
-documents = reuters.fileids()
-train_docs_id = list(filter(lambda doc: doc.startswith("train") and len(reuters.raw(doc))>51, documents))
-test_docs_id = list(filter(lambda doc: doc.startswith("test") and len(reuters.raw(doc))>51, documents))
-#test_docs_id = [test_docs_id[2]]
+train_docs_index = range(rcv1_data.getTrainDocCount())
+print "Num of train Docs: ", len(train_docs_index)
+test_docs_index = range(rcv1_data.getTrainDocCount(), rcv1_data.getTotalDocCount())
+print "Num of test Docs: ", len(test_docs_index)
+#test_docs_index = [test_docs_index[2]]
 
-train_docs = [reuters.raw(doc_id) for doc_id in train_docs_id]
-test_docs = [reuters.raw(doc_id) for doc_id in test_docs_id]
+documents = rcv1_data.getData()
+train_docs = [documents[doc_ind] for doc_ind in train_docs_index]
+train_docsv2 = [rcv1v2_data.getData()[doc_ind] for doc_ind in train_docs_index]
+test_docs = [documents[doc_ind] for doc_ind in test_docs_index]
+documents = []
 
-# Transform for multilabel compatibility
-mlb = MultiLabelBinarizer()
-train_labels = mlb.fit_transform([reuters.categories(doc_id) for doc_id in train_docs_id])
-test_labels = mlb.transform([reuters.categories(doc_id) for doc_id in test_docs_id])
+#Get Doc-Label Matrices
+test_docIDs = [rcv1_data.getDocIDs()[i] for i in test_docs_index]
+sklearn_testIndices = []
+sklearn_testIndices.append(numpy.where(sklearn_docIDs == test_docIDs[0])[0][0])
+i = sklearn_testIndices[0]+1; j = 1
+while(j<len(test_docIDs)):
+    if sklearn_docIDs[i] == test_docIDs[j]:
+        sklearn_testIndices.append(i)
+        i+=1; j+=1
+    else:
+        print "Disparity at test doc num: ", j
+        break
+train_labels = numpy.array([sklearn_labelMatrix[i] for i in train_docs_index])
+test_labels = numpy.array([sklearn_labelMatrix[i] for i in sklearn_testIndices])
 
 #Create label complement matrix
 train_labels_complement = numpy.zeros(shape=train_labels.shape);    train_labels_complement.fill(1)
@@ -69,7 +97,6 @@ train_labels_complement =  train_labels_complement - train_labels
 num_labels = train_labels.shape[1]
 
 #Get Class Prior Prob
-#"""
 priors = []
 for i in range(num_labels):
     classdoc_ids = numpy.nonzero(train_labels[:, i])[0].tolist()
@@ -77,20 +104,26 @@ for i in range(num_labels):
 for i in range(num_labels):
     classdoc_ids = numpy.nonzero(train_labels_complement[:, i])[0].tolist()
     priors.append(len(classdoc_ids)/float(train_labels.shape[0]))
-#"""
+
+
+#Unused variables
+sklearn_labelMatrix = []; sklearn_testIndices = []; sklearn_docIDs = []; rcv1_data = []
 
 print "Building file list complete and it took : ", print_time(start_time)
 start_time = time.time()
 
+#Clear memory
+rcv1_data = []
+rcv1v2_data = []
 
-
-
-#----------------Feature Extraction--------------------------
+#-------------------------- Feature Extraction --------------------------
 
 #Process all documents
 # Learn and transform documents [tf]
-vectorizer_tf = CountVectorizer(stop_words=stop_words, tokenizer=tokenize)
+#vectorizer_tf = CountVectorizer(stop_words=stop_words, tokenizer=tokenize)
+vectorizer_tf = TfidfVectorizer(stop_words=stop_words, tokenizer=tokenize)
 vectorised_train_documents_tf = vectorizer_tf.fit_transform(train_docs)
+train_docsv2 = []
 #vectorised_test_documents_tf = vectorizer_tf.transform(test_docs)
 
 term_freq = {}; term_prob = {}; all_terms = {}; totterms = 0.0
@@ -98,18 +131,48 @@ term_freq = {}; term_prob = {}; all_terms = {}; totterms = 0.0
 def add2dict(k, v, features):
     features[k]=  features.get(k, 0.0) + v
 
-
 #Devide features by class
 for i in range(num_labels):
     classdoc_ids = numpy.nonzero(train_labels[:, i])[0].tolist()
+    if len(classdoc_ids) == 0:
+        term_freq[i] = {term_freq[i-1].keys()[0]: 0}
+        continue
     term_freq[i] = get_TF(vectorizer_tf, vectorised_train_documents_tf, classdoc_ids)
     map(lambda (k, v): add2dict(k, v, all_terms), term_freq[i].items())
     totterms += sum(term_freq[i].values())
-all_terms_prob = {k: v/totterms for k, v in all_terms.items()}
+#all_terms_prob = {k: v/totterms for k, v in all_terms.items()}
+all_terms_prob = all_terms
 #Devide features by class-complements
 for i in range(num_labels):
     classdoc_ids = numpy.nonzero(train_labels_complement[:, i])[0].tolist()
     term_freq[num_labels + i] = get_TF(vectorizer_tf, vectorised_train_documents_tf, classdoc_ids)
+
+
+
+
+all_terms_list = all_terms_prob.keys()
+#Perform feature selection on terms
+#"""
+from tools.cooccurence_utils import feature_selection
+temp = {}
+for i in range(num_labels):
+    temp[0] = term_freq[i]
+    temp[1] = term_freq[num_labels + i]
+    feature_selection(temp, feature_list = all_terms_list, n_features = 0, percent = feature_percent)
+    #feature_selection(temp, feature_list = all_terms_list, n_features = 5000)
+    term_freq[i] = temp[0]
+    term_freq[num_labels + i] = temp[1]
+
+all_terms_list = []
+for i in range(2*num_labels):
+    all_terms_list.extend(term_freq[i].keys())
+all_terms_list = set(all_terms_list)
+
+all_terms_prob = {k: all_terms_prob[k] for k in all_terms_list}
+#"""
+
+
+
 #Convert to Probability & Perform Jelinek-Mercer Smoothing
 if weight == "tf" or cor_type == "P":
     for i in range(num_labels):
@@ -117,10 +180,11 @@ if weight == "tf" or cor_type == "P":
         term_prob[num_labels + i] = freqToProbability(term_freq[num_labels + i], term_freq[i], all_terms_prob, lamda)
 vocab_choice = term_prob
 
-
 #Clear memory for unused variables
-all_terms_list = all_terms.keys()
-all_terms = {};     all_terms_prob = {};    vectorised_train_documents_tf = []
+#all_terms_list = all_terms_prob.keys()
+all_terms = {}; all_terms_prob = {}; vectorised_train_documents_tf = []
+
+print len(all_terms_list)
 
 print "Generating term-weights complete and it took : ", print_time(start_time)
 start_time = time.time()
@@ -128,9 +192,9 @@ start_time = time.time()
 
 #Find cooccurences for all classes and complements
 if cor_type == "J":
-    cooccurences_by_class = cooccurence_main.get_cooccurences_BR(train_labels, train_docs, P_AandB=False)
+    cooccurences_by_class = cooccurence_main.get_cooccurences_BR(train_labels, train_docs, keep_terms = all_terms_list, P_AandB=False)
 elif cor_type == "P":
-    cooccurences_by_class = cooccurence_main.get_cooccurences_BR(train_labels, train_docs, P_AandB=True, term_freq=term_freq, term_prob=term_prob)
+    cooccurences_by_class = cooccurence_main.get_cooccurences_BR(train_labels, train_docs, keep_terms = all_terms_list, P_AandB=True, term_freq=term_freq, term_prob=term_prob)
 
 print "Generating term-cooccurences complete and it took : ", print_time(start_time)
 start_time = time.time()
@@ -149,41 +213,43 @@ term_freq = []
 print "Calculating correlation-coefficients complete and it took : ", print_time(start_time)
 start_time = time.time()
 
-#"""
+
+
 #Perform feature selection on terms
-from tools.cooccurence_utils import feature_selection
-temp = {}
-for i in range(num_labels):
-    temp[0] = term_prob[i]
-    temp[1] = term_prob[num_labels + i]
-    feature_selection(temp, feature_list = all_terms_list, n_features = 0, percent = feature_percent)
-    term_prob[i] = temp[0]
-    term_prob[num_labels + i] = temp[1]
+"""
+if feature_percent < 100:
+    from tools.cooccurence_utils import feature_selection
+    temp = {}
+    for i in range(num_labels):
+        temp[0] = term_prob[i]
+        temp[1] = term_prob[num_labels + i]
+        #feature_selection(temp, feature_list = all_terms_list, n_features = 0, percent = feature_percent)
+        feature_selection(temp, feature_list = all_terms_list, n_features = 500)
+        term_prob[i] = temp[0]
+        term_prob[num_labels + i] = temp[1]
+
+
+    all_terms_list = []
+    for i in range(2*num_labels):
+        all_terms_list.extend(term_prob[i].keys())
+    all_terms_list = set(all_terms_list)
 #"""
 
 
 
-#----------------Classification--------------------------
+#-------------------------- Classification --------------------------
 
 classifier = CopulaClassifier(corcoeff, vocab_choice, priors)
-predictions = classifier.predict_multilabelBR(test_docs)
+predictions = classifier.predict_multilabelBR(test_docs, all_terms = all_terms_list)
 
 print "The Classification is complete and it took", print_time(start_time)
 #print "Avg time taken per doc: ", (print_time(start_time)/float(len(test_docs)))
 start_time = time.time()
 
 
-"""
-print "Original:"
-print test_labels
-print "Predicted:"
-print predictions
-#"""
 
 
-
-
-#-----------------Evaluation ----------------------
+#-------------------------- Evaluation ----------------------
 precision = precision_score(test_labels, predictions, average='micro')
 recall = recall_score(test_labels, predictions, average='micro')
 f1 = f1_score(test_labels, predictions, average='micro')
@@ -198,14 +264,15 @@ f1 = f1_score(test_labels, predictions, average='macro')
 print("Macro-average quality numbers")
 print("Precision: {:.4f}, Recall: {:.4f}, F1-measure: {:.4f}".format(precision, recall, f1))
 
+
+#print [len(numpy.nonzero(train_labels[:, i])[0].tolist()) for i in range(num_labels)]
+#print [len(numpy.nonzero(test_labels[:, i])[0].tolist()) for i in range(num_labels)]
 precision = precision_score(test_labels, predictions, average=None)
 recall = recall_score(test_labels, predictions, average=None)
 f1 = f1_score(test_labels, predictions, average=None)
+print f1
 
 print "Evaluation complete and it took : ", print_time(start_time)
-
-
-
 
 
 import numpy as np
@@ -213,7 +280,6 @@ exp_train = np.sum(train_labels, axis=0)
 exp_test = np.sum(test_labels, axis=0)
 print "Num of train docs per category:\n", exp_train
 print "Num of test docs per category:\n", exp_test
-
 
 #Export to Spreadsheet
 import xlsxwriter
@@ -234,38 +300,3 @@ workbook.close()
 
 
 print "Total time taken : ", (time.time() - program_start)/60.0, "minuites"
-
-
-
-
-
-
-
-
-"######################### Checking outputs #########################"
-
-#print "Documents : ", getsizeof(documents)
-
-#print numpy.nonzero(train_labels[4, :])[0].tolist()
-
-"""
-Rows: Docs ; Columns: Terms
-print vectorised_test_documents_tfidf[[1, 3], :].shape
-print vectorised_test_documents_tfidf.shape
-print len(train_docs), " : ", vectorised_train_documents_tfidf.shape
-print len(test_docs), " : ", vectorised_test_documents_tfidf.shape
-"""
-
-"""
-print numpy.nonzero(term_freq[4].values())
-print term_freq[4].keys()[9], " : ", term_freq[4].values()[9]
-"""
-
-"""
-print "cooccurences_by_class : ", getsizeof(cooccurences_by_class)
-print cooccurences_by_class[4].values()
-"""
-
-#print {k:v for k,v in cooccurences_by_class[2].items() if v<=0.0 or v>=1.0}
-
-#print corcoeff[4].values()[:20]

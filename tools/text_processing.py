@@ -40,6 +40,8 @@ def freqToProbability(term_freq, complement_termfreq, all_term, lamda):
     complement_term_prob = dict(itertools.izip(vocab, prob_values))
     #Perform Jelinek-Mercer Smoothing
     term_prob = {k: (term_prob.get(k, 0.0)*lamda + complement_term_prob.get(k, 0.0)*(1.0-lamda)) for k in all_term.keys()}
+    if len(all_term) > len(term_freq) and len(all_term) > len(complement_termfreq):
+        term_prob = {k: v for k, v in term_prob.items() if v != 0.0}
     return term_prob
 
 

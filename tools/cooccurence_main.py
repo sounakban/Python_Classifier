@@ -2,7 +2,7 @@ import multiprocessing
 thread_count = int(multiprocessing.cpu_count()*0.75)
 from functools import partial
 import numpy
-from cooccurence_extract import process_text
+from cooccurence_extract import process_text, process_text_with_features
 from cooccurence_utils import cal_PMI, get_P_AandB, cal_Jaccard, normalize_corcoeff, get_Simple_Prob, feature_selection
 
 
@@ -65,7 +65,7 @@ def get_cooccurences(train_labels, train_docs, P_AandB, term_freq={}, term_prob=
 
 
 
-def get_cooccurences_BR(train_labels, train_docs, P_AandB, term_freq={}, term_prob={}):
+def get_cooccurences_BR(train_labels, train_docs, keep_terms = [], P_AandB = True, term_freq={}, term_prob={}):
     import sys
     if P_AandB == True and (len(term_freq) != 2*train_labels.shape[1] or len(term_prob) != 2*train_labels.shape[1]):
         raise ValueError('@get_cooccurences: Either set P_AandB to False or pass a valid Term(Freq/Prob) dict, divided by class')
@@ -74,7 +74,11 @@ def get_cooccurences_BR(train_labels, train_docs, P_AandB, term_freq={}, term_pr
 
     #Find Cooccurences accross all documents
     pool = multiprocessing.Pool(processes=thread_count, maxtasksperchild=100)
-    file_coocs = list(pool.map(process_text, train_docs))
+    if len(keep_terms) == 0:
+        file_coocs = list(pool.map(process_text, train_docs))
+    else:
+        print "Keepping only co-occurence of terms from feature selected list"
+        file_coocs = list(pool.map(partial(process_text_with_features, keep_terms), train_docs))
     pool.close()
     pool.join()
     total_cooc = {}

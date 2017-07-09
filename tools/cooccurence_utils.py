@@ -42,7 +42,7 @@ def P_AandB_formula(cooccur, vocab_tf, vocab_tprob, pair):
     else:
         del cooccur[pair]
 
-def feature_selection(all_features, feature_list = [], n_features = 500, percent = 0, relative=False):
+def feature_selection(all_features, feature_list = [], n_features = 500, n_percent = 0, percent = 0, relative=False):
     import operator
 
     #If user does not provide the list of all features
@@ -50,7 +50,7 @@ def feature_selection(all_features, feature_list = [], n_features = 500, percent
         for coouc in all_features.values():
             feature_list.extend(coouc.keys())
         #Remove duplicates
-        feature_list = list(set(feature_list))
+    feature_list = list(set(feature_list))
 
     #Create matrix for chi-squared test
     tot = [1]*len(all_features)
@@ -59,6 +59,7 @@ def feature_selection(all_features, feature_list = [], n_features = 500, percent
             tot[i] = numpy.sum(all_features[i].values())+1
 
     matrix = numpy.zeros(shape=(len(all_features),len(feature_list)))
+
     for i in range(len(all_features)):
         matrix[i] = map(lambda pair: all_features[i].get(pair, 0)/tot[i], feature_list)
         #Set n_features to the min length of features if feature len for some class is less
@@ -69,7 +70,7 @@ def feature_selection(all_features, feature_list = [], n_features = 500, percent
     from sklearn.feature_selection import SelectKBest, chi2
 
     if percent != 0:
-        selector = SelectKBest(chi2, k=(len(feature_list)*percent)/100)
+        selector = SelectKBest(chi2, k = int(len(feature_list)*percent)/100 )
         matrix = selector.fit_transform(matrix, range(len(all_features)))
         #Clean unused memory
         matrix = []
@@ -106,6 +107,24 @@ def feature_selection(all_features, feature_list = [], n_features = 500, percent
                         break
             all_features[i] = curr_features
         #print len( set(all_features[0].keys()) & set(all_features[1].keys()) )
+
+    elif n_percent != 0:
+        chi2, pval = chi2(matrix, range(len(all_features)))
+        pval_dict = dict(itertools.izip(feature_list, pval))
+        feature_lim = int( (min([len(all_features[i]) for i in range(len(all_features))]) * n_percent)/100 )
+        print feature_lim, [len(all_features[i]) for i in range(len(all_features))]
+
+        feature_list_sorted = sorted(pval_dict, key=pval_dict.get)
+        for i in range(len(all_features)):
+            curr_features = {}
+            for k in feature_list_sorted:
+                val = all_features[i].get(k, 0)
+                if val > 0:
+                    curr_features[k] = val
+                    if len(curr_features) == feature_lim:
+                        break
+            all_features[i] = curr_features
+
     else:
         raise ValueError('@feature_selection : Enter non-zero value for n_features or percent')
 
